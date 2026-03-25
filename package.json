@@ -1,0 +1,27 @@
+{
+  "name": "orbit-image",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "next": "^15.3.2",
+    "openai": "^5.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "msw": "^2.8.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}

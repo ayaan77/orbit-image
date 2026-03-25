@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cortex": {
+      "type": "http",
+      "url": "https://cortex.apexure.com/api/mcp?brand=apexure"
+    }
+  }
+}
