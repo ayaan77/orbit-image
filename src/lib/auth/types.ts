@@ -4,6 +4,8 @@ export interface ClientInfo {
   readonly createdAt: string;
   readonly active: boolean;
   readonly rateLimit?: number;
+  readonly scopes?: readonly string[];
+  readonly defaultWebhookUrl?: string;
 }
 
 export type AuthResult =

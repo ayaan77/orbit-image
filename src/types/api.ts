@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPublicHttpsUrl } from "@/lib/validation/webhook-url";
 
 export const ImagePurpose = z.enum([
   "blog-hero",
@@ -45,6 +46,16 @@ export const GenerateRequestSchema = z.object({
   dimensions: DimensionsSchema.optional(),
   count: z.number().int().min(1).max(4).default(1),
   quality: z.enum(["standard", "hd"]).default("hd"),
+
+  // Async delivery
+  async: z.boolean().optional(),
+  webhook_url: z
+    .string()
+    .url()
+    .refine(isPublicHttpsUrl, {
+      message: "Webhook URL must be a public HTTPS endpoint",
+    })
+    .optional(),
 });
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
 
@@ -62,7 +73,15 @@ export interface GenerateResponse {
   readonly metadata: {
     readonly processingTimeMs: number;
     readonly cortexDataCached: boolean;
+    readonly resultCached?: boolean;
   };
+}
+
+export interface AsyncGenerateResponse {
+  readonly success: true;
+  readonly async: true;
+  readonly jobId: string;
+  readonly statusUrl: string;
 }
 
 export interface ErrorResponse {

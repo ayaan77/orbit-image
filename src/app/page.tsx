@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { GeneratorForm } from "@/components/GeneratorForm";
 import { ImageGallery } from "@/components/ImageGallery";
 import { ToastProvider, useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
 import { ApiKeyGate } from "@/components/ApiKeyGate";
-import { getApiKey, hasApiKey } from "@/lib/client/storage";
+import { Dashboard } from "@/components/Dashboard";
+import { getApiKey, hasApiKey, getIsAdmin, detectAdmin } from "@/lib/client/storage";
 import type { GenerateRequest } from "@/types/api";
 import styles from "./page.module.css";
 
@@ -41,8 +42,18 @@ export default function Home() {
 function HomeContent() {
   const [state, setState] = useState<AppState>({ status: "idle" });
   const [apiKeyPresent, setApiKeyPresent] = useState(() => hasApiKey());
+  const [isAdmin, setIsAdmin] = useState(() => getIsAdmin());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { showToast } = useToast();
+
+  // Detect admin status when API key is present
+  useEffect(() => {
+    if (apiKeyPresent) {
+      detectAdmin().then(setIsAdmin);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [apiKeyPresent]);
 
   const handleGenerate = useCallback(
     async (data: GenerateRequest) => {
@@ -96,7 +107,13 @@ function HomeContent() {
 
   const handleSettingsClose = useCallback(() => {
     setSettingsOpen(false);
-    setApiKeyPresent(hasApiKey());
+    const keyPresent = hasApiKey();
+    setApiKeyPresent(keyPresent);
+    if (keyPresent) {
+      detectAdmin().then(setIsAdmin);
+    } else {
+      setIsAdmin(false);
+    }
   }, []);
 
   return (
@@ -104,38 +121,42 @@ function HomeContent() {
       <Header onSettingsClick={() => setSettingsOpen(true)} />
 
       {apiKeyPresent ? (
-        <main className={styles.main}>
-          <div className={styles.container}>
-            {/* Left: Form */}
-            <section className={styles.formPanel}>
-              <div className={styles.card}>
-                <GeneratorForm
-                  onSubmit={handleGenerate}
-                  isLoading={state.status === "loading"}
-                />
-              </div>
-            </section>
+        isAdmin ? (
+          <Dashboard />
+        ) : (
+          <main className={styles.main}>
+            <div className={styles.container}>
+              {/* Left: Form */}
+              <section className={styles.formPanel}>
+                <div className={styles.card}>
+                  <GeneratorForm
+                    onSubmit={handleGenerate}
+                    isLoading={state.status === "loading"}
+                  />
+                </div>
+              </section>
 
-            {/* Right: Results */}
-            <section className={styles.resultPanel}>
-              {state.status === "idle" && <EmptyState />}
-              {state.status === "loading" && <LoadingState />}
-              {state.status === "error" && (
-                <ErrorState
-                  message={state.message}
-                  onDismiss={() => setState({ status: "idle" })}
-                />
-              )}
-              {state.status === "success" && (
-                <ImageGallery
-                  images={state.result.images}
-                  brand={state.result.brand}
-                  processingTimeMs={state.result.processingTimeMs}
-                />
-              )}
-            </section>
-          </div>
-        </main>
+              {/* Right: Results */}
+              <section className={styles.resultPanel}>
+                {state.status === "idle" && <EmptyState />}
+                {state.status === "loading" && <LoadingState />}
+                {state.status === "error" && (
+                  <ErrorState
+                    message={state.message}
+                    onDismiss={() => setState({ status: "idle" })}
+                  />
+                )}
+                {state.status === "success" && (
+                  <ImageGallery
+                    images={state.result.images}
+                    brand={state.result.brand}
+                    processingTimeMs={state.result.processingTimeMs}
+                  />
+                )}
+              </section>
+            </div>
+          </main>
+        )
       ) : (
         <ApiKeyGate onKeySet={() => setApiKeyPresent(true)} />
       )}

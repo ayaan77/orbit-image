@@ -19,10 +19,17 @@ import {
 } from "@/lib/mcp/handlers";
 import { authenticateRequest } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
+import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
+import { corsHeaders, handlePreflight } from "@/lib/middleware/cors";
 import { logUsage } from "@/lib/usage/logger";
 import { estimateCost } from "@/lib/usage/cost";
 
 export const maxDuration = 60;
+
+/** CORS preflight */
+export function OPTIONS(request: Request) {
+  return handlePreflight(request) ?? new NextResponse(null, { status: 204 });
+}
 
 /**
  * MCP Server endpoint — JSON-RPC 2.0 over HTTP.
@@ -31,13 +38,17 @@ export const maxDuration = 60;
 export async function POST(
   request: Request
 ): Promise<NextResponse<JsonRpcResponse>> {
+  const requestId = getRequestId(request);
+  const headers = { ...requestIdHeaders(requestId), ...corsHeaders(request) };
+
   // Parse JSON body
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      buildErrorResponse(null, PARSE_ERROR, "Invalid JSON")
+      buildErrorResponse(null, PARSE_ERROR, "Invalid JSON"),
+      { headers },
     );
   }
 
@@ -45,7 +56,8 @@ export async function POST(
   const parsed = JsonRpcRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      buildErrorResponse(null, INVALID_REQUEST, "Invalid JSON-RPC 2.0 request")
+      buildErrorResponse(null, INVALID_REQUEST, "Invalid JSON-RPC 2.0 request"),
+      { headers },
     );
   }
 
@@ -54,18 +66,23 @@ export async function POST(
   // ─── tools/list — return all tool definitions ───
   if (method === "tools/list") {
     return NextResponse.json(
-      buildToolsListResponse(id, getToolDefinitions() as unknown as Record<string, unknown>[])
+      buildToolsListResponse(id, getToolDefinitions()),
+      { headers },
     );
   }
 
   // ─── tools/call — dispatch to a specific tool ───
   if (method === "tools/call") {
-    const toolName = params.name as string | undefined;
-    const toolArgs = (params.arguments ?? {}) as Record<string, unknown>;
+    const toolName = typeof params.name === "string" ? params.name : undefined;
+    const toolArgs =
+      params.arguments != null && typeof params.arguments === "object"
+        ? (params.arguments as Record<string, unknown>)
+        : {};
 
     if (!toolName || !findTool(toolName)) {
       return NextResponse.json(
-        buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown tool: ${toolName ?? "undefined"}`)
+        buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown tool: ${toolName ?? "undefined"}`),
+        { headers },
       );
     }
 
@@ -75,14 +92,16 @@ export async function POST(
       authResult = await authenticateRequest(request);
       if (authResult.type === "error") {
         return NextResponse.json(
-          buildErrorResponse(id, AUTH_REQUIRED, "Authentication required for generate-image")
+          buildErrorResponse(id, AUTH_REQUIRED, "Authentication required for generate-image"),
+          { headers },
         );
       }
 
       const rateLimitError = checkRateLimit(request);
       if (rateLimitError) {
         return NextResponse.json(
-          buildErrorResponse(id, RATE_LIMITED, "Rate limit exceeded")
+          buildErrorResponse(id, RATE_LIMITED, "Rate limit exceeded"),
+          { headers },
         );
       }
     }
@@ -91,10 +110,10 @@ export async function POST(
     try {
       switch (toolName) {
         case "list-styles":
-          return NextResponse.json(handleListStyles(id));
+          return NextResponse.json(handleListStyles(id), { headers });
 
         case "list-purposes":
-          return NextResponse.json(handleListPurposes(id));
+          return NextResponse.json(handleListPurposes(id), { headers });
 
         case "generate-image": {
           const clientId = authResult?.type === "client" ? authResult.client.clientId : "master";
@@ -115,24 +134,27 @@ export async function POST(
               timestamp: new Date(),
             }));
           });
-          return NextResponse.json(result);
+          return NextResponse.json(result, { headers });
         }
 
         default:
           return NextResponse.json(
-            buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown tool: ${toolName}`)
+            buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown tool: ${toolName}`),
+            { headers },
           );
       }
     } catch (error) {
-      console.error("[mcp] Dispatch error:", error);
+      console.error(`[mcp] [${requestId}] Dispatch error:`, error);
       return NextResponse.json(
-        buildErrorResponse(id, INTERNAL_ERROR, "Internal error")
+        buildErrorResponse(id, INTERNAL_ERROR, "Internal error"),
+        { headers },
       );
     }
   }
 
   // Unknown method
   return NextResponse.json(
-    buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown method: ${method}`)
+    buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown method: ${method}`),
+    { headers },
   );
 }

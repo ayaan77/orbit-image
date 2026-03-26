@@ -1,4 +1,4 @@
-import type { JsonRpcErrorResponse, JsonRpcSuccessResponse } from "@/types/mcp";
+import type { JsonRpcErrorResponse, JsonRpcSuccessResponse, McpToolDefinition } from "@/types/mcp";
 
 // ─── Standard JSON-RPC 2.0 Error Codes ───
 
@@ -44,7 +44,7 @@ export function buildSuccessResponse(
 
 export function buildToolsListResponse(
   id: string | number,
-  tools: readonly Record<string, unknown>[]
+  tools: readonly McpToolDefinition[],
 ): JsonRpcSuccessResponse {
   return {
     jsonrpc: "2.0",

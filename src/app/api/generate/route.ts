@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 import { after } from "next/server";
 import { authenticateRequest } from "@/lib/middleware/auth";
 import { authResultToResponse } from "@/lib/middleware/auth-helpers";
-import { checkRateLimit } from "@/lib/middleware/rate-limit";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/middleware/rate-limit";
 import { validateRequestBody } from "@/lib/middleware/validation";
+import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
+import { corsHeaders, handlePreflight } from "@/lib/middleware/cors";
 import { GenerateRequestSchema } from "@/types/api";
-import type { GenerateResponse, ErrorResponse } from "@/types/api";
+import type {
+  GenerateRequest,
+  GenerateResponse,
+  AsyncGenerateResponse,
+  ErrorResponse,
+} from "@/types/api";
 import { createCachedCortexClient } from "@/lib/cortex/cached-client";
 import { CortexError } from "@/lib/cortex/client";
 import { ProviderError } from "@/lib/providers/types";
@@ -14,32 +21,49 @@ import { getProvider } from "@/lib/providers/factory";
 import { getEnv } from "@/lib/config/env";
 import { logUsage } from "@/lib/usage/logger";
 import { estimateCost } from "@/lib/usage/cost";
+import { createJob, getJob, updateJob } from "@/lib/jobs/store";
+import type { Job } from "@/lib/jobs/types";
+import { deliverWebhook } from "@/lib/jobs/webhook";
+import { getGenerateQueue } from "@/lib/queue/concurrency-queue";
+import { QueueTimeoutError } from "@/lib/queue/errors";
+import {
+  computeCacheKey,
+  getCachedResult,
+  setCachedResult,
+} from "@/lib/cache/result-cache";
+import type { CachedGenerateResult } from "@/lib/cache/result-cache";
 
 export const maxDuration = 60;
 
-export async function POST(
-  request: Request
-): Promise<NextResponse<GenerateResponse | ErrorResponse>> {
-  const startTime = Date.now();
+/** CORS preflight */
+export function OPTIONS(request: Request) {
+  return handlePreflight(request) ?? new NextResponse(null, { status: 204 });
+}
 
-  // Auth
-  const authResult = await authenticateRequest(request);
-  const authError = authResultToResponse(authResult);
-  if (authError) return authError;
+/** Build common response headers (request ID + CORS + rate limit). */
+function commonHeaders(
+  request: Request,
+  requestId: string,
+  clientRateLimit?: number,
+): Record<string, string> {
+  return {
+    ...requestIdHeaders(requestId),
+    ...corsHeaders(request),
+    ...getRateLimitHeaders(request, clientRateLimit),
+  };
+}
 
-  // Rate limit
-  const rateLimitError = checkRateLimit(request);
-  if (rateLimitError) return rateLimitError;
+async function generateImages(
+  body: GenerateRequest,
+  brand: string,
+) {
+  const env = getEnv();
+  const queue = getGenerateQueue(
+    env.MAX_CONCURRENT_GENERATES,
+    env.GENERATE_QUEUE_TIMEOUT_MS,
+  );
 
-  // Validate body
-  const validation = await validateRequestBody(request, GenerateRequestSchema);
-  if (!validation.success) return validation.response;
-
-  const body = validation.data;
-  const brand = body.brand ?? getEnv().DEFAULT_BRAND;
-
-  try {
-    // Fetch brand context from Cortex
+  return queue.enqueue(async () => {
     const cortex = createCachedCortexClient(brand);
     const { context, cached } = await cortex.getBrandContext(brand, {
       topic: body.topic,
@@ -47,19 +71,10 @@ export async function POST(
       industry: body.industry,
     });
 
-    // Assemble prompt
-    const requestWithDefaults = {
-      ...body,
-      count: body.count ?? 1,
-      quality: body.quality ?? "hd" as const,
-    };
-    const promptBundle = assemblePrompt(requestWithDefaults, context);
-
-    // Generate image
+    const promptBundle = assemblePrompt(body, context);
     const provider = getProvider();
     const generatedImages = await provider.generate(promptBundle);
 
-    // Build response
     const images = generatedImages.map((img) => ({
       base64: img.data.toString("base64"),
       prompt: img.prompt,
@@ -67,37 +82,241 @@ export async function POST(
       dimensions: img.dimensions,
     }));
 
-    const processingTimeMs = Date.now() - startTime;
+    return { images, cached };
+  });
+}
 
-    // Log usage asynchronously (non-blocking)
-    const clientId = authResult.type === "client" ? authResult.client.clientId : "master";
-    const clientName = authResult.type === "client" ? authResult.client.clientName : "master";
-    after(logUsage({
-      clientId,
-      clientName,
+
+export async function POST(
+  request: Request,
+): Promise<
+  NextResponse<GenerateResponse | AsyncGenerateResponse | ErrorResponse>
+> {
+  const startTime = Date.now();
+  const requestId = getRequestId(request);
+  const baseHeaders = () => requestIdHeaders(requestId);
+
+  // Auth
+  const authResult = await authenticateRequest(request);
+  const authError = authResultToResponse(authResult);
+  if (authError) {
+    // Attach request ID + CORS even to auth errors
+    const h = { ...baseHeaders(), ...corsHeaders(request) };
+    Object.entries(h).forEach(([k, v]) => authError.headers.set(k, v));
+    return authError;
+  }
+
+  // Per-client rate limit
+  const clientRateLimit =
+    authResult.type === "client" ? authResult.client.rateLimit : undefined;
+  const rateLimitError = checkRateLimit(request, clientRateLimit);
+  if (rateLimitError) {
+    const h = { ...baseHeaders(), ...corsHeaders(request) };
+    Object.entries(h).forEach(([k, v]) => rateLimitError.headers.set(k, v));
+    return rateLimitError;
+  }
+
+  // Validate body
+  const validation = await validateRequestBody(request, GenerateRequestSchema);
+  if (!validation.success) {
+    const h = commonHeaders(request, requestId, clientRateLimit);
+    Object.entries(h).forEach(([k, v]) => validation.response.headers.set(k, v));
+    return validation.response;
+  }
+
+  const parsed = validation.data;
+  // Zod applies defaults; ensure count/quality are set
+  const body: GenerateRequest = {
+    ...parsed,
+    count: parsed.count ?? 1,
+    quality: parsed.quality ?? "hd",
+  };
+  const brand = body.brand ?? getEnv().DEFAULT_BRAND;
+  const clientId =
+    authResult.type === "client" ? authResult.client.clientId : "master";
+  const clientName =
+    authResult.type === "client" ? authResult.client.clientName : "master";
+
+  // Brand scope check
+  if (authResult.type === "client" && authResult.client.scopes?.length) {
+    if (!authResult.client.scopes.includes(brand)) {
+      return NextResponse.json(
+        {
+          success: false as const,
+          error: {
+            code: "SCOPE_DENIED",
+            message: `Your API key does not have access to brand "${brand}".`,
+          },
+        },
+        { status: 403, headers: commonHeaders(request, requestId, clientRateLimit) },
+      );
+    }
+  }
+
+  const headers = commonHeaders(request, requestId, clientRateLimit);
+
+  // ─── Async path ───
+  if (body.async) {
+    // Reject upfront if webhook is requested but secret is not configured
+    if (body.webhook_url && !getEnv().WEBHOOK_SECRET) {
+      return NextResponse.json(
+        {
+          success: false as const,
+          error: {
+            code: "WEBHOOK_NOT_CONFIGURED",
+            message:
+              "Webhook delivery requires WEBHOOK_SECRET to be configured on the server.",
+          },
+        },
+        { status: 503, headers },
+      );
+    }
+
+    try {
+      const job = await createJob({
+        clientId,
+        request: body,
+        webhookUrl: body.webhook_url,
+      });
+
+      // Process in background after response is sent
+      const baseUrl = new URL(request.url).origin;
+      after(processAsyncJob(job.id, body, brand, clientId, clientName, startTime));
+
+      return NextResponse.json(
+        {
+          success: true as const,
+          async: true as const,
+          jobId: job.id,
+          statusUrl: `${baseUrl}/api/jobs/${job.id}`,
+        },
+        { headers },
+      );
+    } catch {
+      return NextResponse.json(
+        {
+          success: false as const,
+          error: {
+            code: "ASYNC_UNAVAILABLE",
+            message:
+              "Async processing requires Redis. Use sync mode or configure KV storage.",
+          },
+        },
+        { status: 503, headers },
+      );
+    }
+  }
+
+  // ─── Sync path ───
+  const bypassCache = request.headers.get("X-Cache-Bypass") === "true";
+
+  try {
+    // Check image result cache first
+    const cacheKey = computeCacheKey({
+      topic: body.topic,
       brand,
       purpose: body.purpose,
       style: body.style,
-      imageCount: requestWithDefaults.count,
-      quality: requestWithDefaults.quality,
-      estimatedCostUsd: estimateCost(requestWithDefaults.count, requestWithDefaults.quality),
-      processingTimeMs,
-      cached,
-      endpoint: "rest",
-      timestamp: new Date(),
-    }));
-
-    return NextResponse.json({
-      success: true as const,
-      images,
-      brand,
-      metadata: {
-        processingTimeMs,
-        cortexDataCached: cached,
-      },
+      quality: body.quality,
+      dimensions: body.dimensions,
+      count: body.count,
     });
+
+    const cacheHit = bypassCache ? null : await getCachedResult(cacheKey);
+
+    if (cacheHit) {
+      const processingTimeMs = Date.now() - startTime;
+
+      after(
+        logUsage({
+          clientId,
+          clientName,
+          brand,
+          purpose: body.purpose,
+          style: body.style,
+          imageCount: body.count,
+          quality: body.quality,
+          estimatedCostUsd: 0,
+          processingTimeMs,
+          cached: true,
+          endpoint: "rest",
+          timestamp: new Date(),
+        }),
+      );
+
+      return NextResponse.json(
+        {
+          success: true as const,
+          images: cacheHit.images,
+          brand,
+          metadata: {
+            processingTimeMs,
+            cortexDataCached: true,
+            resultCached: true,
+          },
+        },
+        { headers },
+      );
+    }
+
+    // Cache miss — generate via queue
+    const { images, cached } = await generateImages(body, brand);
+    const processingTimeMs = Date.now() - startTime;
+
+    // Store in cache (fire-and-forget)
+    after(
+      setCachedResult(cacheKey, {
+        images,
+        brand,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+
+    after(
+      logUsage({
+        clientId,
+        clientName,
+        brand,
+        purpose: body.purpose,
+        style: body.style,
+        imageCount: body.count,
+        quality: body.quality,
+        estimatedCostUsd: estimateCost(body.count, body.quality),
+        processingTimeMs,
+        cached,
+        endpoint: "rest",
+        timestamp: new Date(),
+      }),
+    );
+
+    return NextResponse.json(
+      {
+        success: true as const,
+        images,
+        brand,
+        metadata: {
+          processingTimeMs,
+          cortexDataCached: cached,
+          resultCached: false,
+        },
+      },
+      { headers },
+    );
   } catch (error) {
-    console.error("[generate] Error:", error);
+    console.error(`[generate] [${requestId}] Error:`, error);
+
+    if (error instanceof QueueTimeoutError) {
+      return NextResponse.json(
+        {
+          success: false as const,
+          error: {
+            code: "QUEUE_TIMEOUT",
+            message: "Server is busy. Please retry shortly.",
+          },
+        },
+        { status: 503, headers },
+      );
+    }
 
     if (error instanceof CortexError) {
       return NextResponse.json(
@@ -108,7 +327,7 @@ export async function POST(
             message: "Failed to retrieve brand data. Please try again.",
           },
         },
-        { status: 502 }
+        { status: 502, headers },
       );
     }
 
@@ -121,7 +340,7 @@ export async function POST(
             message: "Image generation failed. Please try again.",
           },
         },
-        { status: 502 }
+        { status: 502, headers },
       );
     }
 
@@ -133,7 +352,108 @@ export async function POST(
           message: "An internal error occurred.",
         },
       },
-      { status: 500 }
+      { status: 500, headers },
     );
+  }
+}
+
+/** Deliver webhook for a job if configured. */
+async function tryDeliverWebhook(job: Job | null, jobId: string): Promise<void> {
+  if (!job?.webhookUrl) return;
+  const secret = getEnv().WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn(`[async-job] [${jobId}] webhookUrl configured but WEBHOOK_SECRET missing — skipping delivery`);
+    return;
+  }
+  await deliverWebhook(job, secret);
+}
+
+/**
+ * Background processor for async jobs.
+ * Runs via after() — executes after the response is sent.
+ */
+async function processAsyncJob(
+  jobId: string,
+  body: GenerateRequest,
+  brand: string,
+  clientId: string,
+  clientName: string,
+  startTime: number,
+): Promise<void> {
+  try {
+    await updateJob(jobId, { status: "processing" });
+
+    // Check cache for async jobs too
+    const cacheKey = computeCacheKey({
+      topic: body.topic,
+      brand,
+      purpose: body.purpose,
+      style: body.style,
+      quality: body.quality,
+      dimensions: body.dimensions,
+      count: body.count,
+    });
+
+    const cacheHit = await getCachedResult(cacheKey);
+    let images: CachedGenerateResult["images"];
+    let cached: boolean;
+
+    if (cacheHit) {
+      images = cacheHit.images;
+      cached = true;
+    } else {
+      const generated = await generateImages(body, brand);
+      images = generated.images;
+      cached = generated.cached;
+
+      // Store in cache
+      await setCachedResult(cacheKey, {
+        images,
+        brand,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const processingTimeMs = Date.now() - startTime;
+
+    const result = {
+      images,
+      brand,
+      processingTimeMs,
+      cortexDataCached: cached,
+      resultCached: !!cacheHit,
+    };
+
+    const updatedJob = await updateJob(jobId, {
+      status: "completed",
+      result,
+    });
+
+    await tryDeliverWebhook(updatedJob, jobId);
+
+    await logUsage({
+      clientId,
+      clientName,
+      brand,
+      purpose: body.purpose,
+      style: body.style,
+      imageCount: body.count,
+      quality: body.quality,
+      estimatedCostUsd: estimateCost(body.count, body.quality),
+      processingTimeMs,
+      cached,
+      endpoint: "rest",
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    console.error(`[async-job] [${jobId}] Error:`, error);
+    await updateJob(jobId, {
+      status: "failed",
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    });
+
+    const failedJob = await getJob(jobId);
+    await tryDeliverWebhook(failedJob, jobId);
   }
 }
