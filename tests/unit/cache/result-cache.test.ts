@@ -104,6 +104,56 @@ describe("computeCacheKey", () => {
     });
     expect(key).toMatch(/^oimg:imgcache:[a-f0-9]{64}$/);
   });
+
+  it("produces different hashes when persona differs", () => {
+    const base = {
+      topic: "test",
+      brand: "apexure",
+      purpose: "blog-hero" as const,
+      quality: "hd",
+      count: 1,
+    };
+    const key1 = computeCacheKey({ ...base, persona: "cmo" });
+    const key2 = computeCacheKey({ ...base, persona: "developer" });
+    const key3 = computeCacheKey(base);
+    expect(key1).not.toBe(key2);
+    expect(key1).not.toBe(key3);
+  });
+
+  it("produces different hashes when audience differs", () => {
+    const base = {
+      topic: "test",
+      brand: "apexure",
+      purpose: "blog-hero" as const,
+      quality: "hd",
+      count: 1,
+    };
+    const key1 = computeCacheKey({ ...base, audience: "enterprise" });
+    const key2 = computeCacheKey({ ...base, audience: "smb" });
+    const key3 = computeCacheKey(base);
+    expect(key1).not.toBe(key2);
+    expect(key1).not.toBe(key3);
+  });
+
+  it("normalizes undefined persona/audience to null", () => {
+    const withUndefined = computeCacheKey({
+      topic: "test",
+      brand: "apexure",
+      purpose: "blog-hero",
+      quality: "hd",
+      count: 1,
+      persona: undefined,
+      audience: undefined,
+    });
+    const withoutFields = computeCacheKey({
+      topic: "test",
+      brand: "apexure",
+      purpose: "blog-hero",
+      quality: "hd",
+      count: 1,
+    });
+    expect(withUndefined).toBe(withoutFields);
+  });
 });
 
 describe("getCachedResult", () => {

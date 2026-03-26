@@ -103,5 +103,6 @@ export interface BrandContext {
   readonly voice: BrandVoice;
   readonly company: CompanyData;
   readonly personas?: readonly Persona[];
+  readonly audiences?: readonly Audience[];
   readonly proof?: ProofData;
 }

@@ -89,6 +89,7 @@ export async function handleGenerateImage(
     const { context } = await cortex.getBrandContext(brand, {
       topic: params.topic,
       persona: params.persona,
+      audience: params.audience,
       industry: params.industry,
     });
 

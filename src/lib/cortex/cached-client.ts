@@ -118,11 +118,21 @@ export function createCachedCortexClient(defaultBrand?: string) {
 
     async getBrandContext(
       overrideBrand?: string,
-      opts?: { topic?: string; persona?: string; industry?: string }
+      opts?: { topic?: string; persona?: string; audience?: string; industry?: string }
     ): Promise<{ context: BrandContext; cached: boolean }> {
       const b = overrideBrand ?? brand;
 
-      const [coloursRes, voiceRes, companyRes, proofRes] = await Promise.all([
+      const fetchPersonasForContext = async () => {
+        const key = buildCacheKey(b, "get-personas");
+        return cachedCall(key, getBrandTtlMs(), () => inner.getPersonas(b));
+      };
+
+      const fetchAudiencesForContext = async () => {
+        const key = buildCacheKey(b, "get-audiences");
+        return cachedCall(key, getBrandTtlMs(), () => inner.getAudiences(b));
+      };
+
+      const [coloursRes, voiceRes, companyRes, proofRes, personasRes, audiencesRes] = await Promise.all([
         fetchColours(b),
         fetchBrandVoice(b),
         fetchCompany(b),
@@ -134,18 +144,24 @@ export function createCachedCortexClient(defaultBrand?: string) {
               limit: 3,
             })
           : Promise.resolve(undefined),
+        opts?.persona ? fetchPersonasForContext() : Promise.resolve(undefined),
+        opts?.audience ? fetchAudiencesForContext() : Promise.resolve(undefined),
       ]);
 
       const allCached =
         coloursRes.cached &&
         voiceRes.cached &&
         companyRes.cached &&
-        (proofRes?.cached ?? true);
+        (proofRes?.cached ?? true) &&
+        (personasRes?.cached ?? true) &&
+        (audiencesRes?.cached ?? true);
 
       const context: BrandContext = {
         colours: coloursRes.value,
         voice: voiceRes.value,
         company: companyRes.value,
+        personas: personasRes?.value,
+        audiences: audiencesRes?.value,
         proof: proofRes?.value,
       };
 

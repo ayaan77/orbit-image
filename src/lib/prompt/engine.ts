@@ -64,6 +64,50 @@ function buildProofContext(context: BrandContext): string {
     : "";
 }
 
+function buildPersonaContext(
+  context: BrandContext,
+  request: GenerateRequest,
+): string {
+  if (!context.personas?.length || !request.persona) return "";
+
+  const match = context.personas.find(
+    (p) =>
+      p.name.toLowerCase() === request.persona!.toLowerCase() ||
+      p.id === request.persona,
+  );
+  if (!match) return "";
+
+  const parts: string[] = [`Targeting persona: ${match.name}`];
+  if (match.role) parts.push(`(${match.role})`);
+  if (match.goals?.length) {
+    parts.push(`who values ${match.goals.slice(0, 2).join(" and ")}`);
+  }
+  if (match.pain_points?.length) {
+    parts.push(`and struggles with ${match.pain_points[0]}`);
+  }
+
+  return (
+    parts.join(" ") +
+    ". Tailor the visual mood and subject matter accordingly."
+  );
+}
+
+function buildAudienceContext(
+  context: BrandContext,
+  request: GenerateRequest,
+): string {
+  if (!context.audiences?.length || !request.audience) return "";
+
+  const match = context.audiences.find(
+    (a) =>
+      a.name.toLowerCase() === request.audience!.toLowerCase() ||
+      a.id === request.audience,
+  );
+  if (!match) return "";
+
+  return `Target audience: ${match.name}. Ensure the visual resonates with this segment's expectations and preferences.`;
+}
+
 function buildNegativePrompt(): string {
   return [
     "No text, watermarks, or logos",
@@ -83,6 +127,8 @@ export function assemblePrompt(
   const colorSection = buildColorPromptSection(context.colours);
   const personality = deriveBrandPersonality(context);
   const styleModifier = buildStyleModifier(request.style);
+  const personaContext = buildPersonaContext(context, request);
+  const audienceContext = buildAudienceContext(context, request);
   const proofContext = buildProofContext(context);
 
   const focusSection = template.focusAreas
@@ -95,6 +141,8 @@ export function assemblePrompt(
     colorSection,
     personality,
     styleModifier,
+    personaContext,
+    audienceContext,
     "",
     `Focus areas:\n${focusSection}`,
     "",

@@ -173,8 +173,8 @@ export function UsagePanel() {
                         {row.quality}
                       </span>
                     </td>
-                    <td className={styles.mono}>${row.estimated_cost_usd.toFixed(3)}</td>
-                    <td className={styles.mono}>{(row.processing_time_ms / 1000).toFixed(1)}s</td>
+                    <td className={styles.mono}>${Number(row.estimated_cost_usd).toFixed(3)}</td>
+                    <td className={styles.mono}>{(Number(row.processing_time_ms) / 1000).toFixed(1)}s</td>
                     <td>{row.cached ? "Yes" : "No"}</td>
                     <td>
                       <span className={`${styles.endpointBadge} ${row.endpoint === "mcp" ? styles.endpointMcp : styles.endpointRest}`}>

@@ -16,22 +16,22 @@ describe("checkRateLimit", () => {
     resetRateLimitState();
   });
 
-  it("returns null when under the limit", () => {
-    const result = checkRateLimit(makeRequest());
+  it("returns null when under the limit", async () => {
+    const result = await checkRateLimit(makeRequest());
     expect(result).toBeNull();
   });
 
-  it("returns 429 when limit exceeded", () => {
+  it("returns 429 when limit exceeded", async () => {
     const limit = 3;
     const req = makeRequest();
 
     // Consume all allowed requests
     for (let i = 0; i < limit; i++) {
-      expect(checkRateLimit(req, limit)).toBeNull();
+      expect(await checkRateLimit(req, limit)).toBeNull();
     }
 
     // Next request should be rate-limited
-    const limited = checkRateLimit(req, limit);
+    const limited = await checkRateLimit(req, limit);
     expect(limited).not.toBeNull();
     expect(limited!.status).toBe(429);
   });
@@ -40,8 +40,8 @@ describe("checkRateLimit", () => {
     const limit = 1;
     const req = makeRequest();
 
-    checkRateLimit(req, limit); // consume the single allowed request
-    const limited = checkRateLimit(req, limit);
+    await checkRateLimit(req, limit); // consume the single allowed request
+    const limited = await checkRateLimit(req, limit);
 
     expect(limited).not.toBeNull();
     expect(limited!.headers.get("Retry-After")).toBeTruthy();
@@ -54,8 +54,8 @@ describe("checkRateLimit", () => {
     const limit = 1;
     const req = makeRequest();
 
-    checkRateLimit(req, limit);
-    const limited = checkRateLimit(req, limit)!;
+    await checkRateLimit(req, limit);
+    const limited = (await checkRateLimit(req, limit))!;
     const body = await limited.json();
 
     expect(body.success).toBe(false);
@@ -63,41 +63,41 @@ describe("checkRateLimit", () => {
     expect(body.error.message).toContain("Rate limit exceeded");
   });
 
-  it("tracks different clients separately", () => {
+  it("tracks different clients separately", async () => {
     const limit = 1;
     const reqA = makeRequest("Bearer client-a");
     const reqB = makeRequest("Bearer client-b");
 
-    expect(checkRateLimit(reqA, limit)).toBeNull();
-    expect(checkRateLimit(reqB, limit)).toBeNull();
+    expect(await checkRateLimit(reqA, limit)).toBeNull();
+    expect(await checkRateLimit(reqB, limit)).toBeNull();
 
     // Both should now be limited independently
-    expect(checkRateLimit(reqA, limit)).not.toBeNull();
-    expect(checkRateLimit(reqB, limit)).not.toBeNull();
+    expect(await checkRateLimit(reqA, limit)).not.toBeNull();
+    expect(await checkRateLimit(reqB, limit)).not.toBeNull();
   });
 
-  it("uses per-client rate limit when provided", () => {
+  it("uses per-client rate limit when provided", async () => {
     const req = makeRequest();
 
     // Client with limit of 2
-    expect(checkRateLimit(req, 2)).toBeNull();
-    expect(checkRateLimit(req, 2)).toBeNull();
-    expect(checkRateLimit(req, 2)).not.toBeNull();
+    expect(await checkRateLimit(req, 2)).toBeNull();
+    expect(await checkRateLimit(req, 2)).toBeNull();
+    expect(await checkRateLimit(req, 2)).not.toBeNull();
   });
 
-  it("falls back to global limit when no client limit", () => {
+  it("falls back to global limit when no client limit", async () => {
     const req = makeRequest();
     // Global RATE_LIMIT_PER_MINUTE is set to 60 in test setup
-    const result = checkRateLimit(req);
+    const result = await checkRateLimit(req);
     expect(result).toBeNull();
   });
 
-  it("uses x-forwarded-for as fallback key when no auth header", () => {
+  it("uses x-forwarded-for as fallback key when no auth header", async () => {
     const req = new Request("http://localhost:3000/api/test", {
       headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1" },
     });
-    expect(checkRateLimit(req, 1)).toBeNull();
-    expect(checkRateLimit(req, 1)).not.toBeNull();
+    expect(await checkRateLimit(req, 1)).toBeNull();
+    expect(await checkRateLimit(req, 1)).not.toBeNull();
   });
 });
 
@@ -106,35 +106,35 @@ describe("getRateLimitHeaders", () => {
     resetRateLimitState();
   });
 
-  it("returns correct headers with full remaining quota", () => {
+  it("returns correct headers with full remaining quota", async () => {
     const req = makeRequest();
-    const headers = getRateLimitHeaders(req, 60);
+    const headers = await getRateLimitHeaders(req, 60);
 
     expect(headers["X-RateLimit-Limit"]).toBe("60");
     expect(headers["X-RateLimit-Remaining"]).toBe("60");
     expect(headers["X-RateLimit-Reset"]).toBeTruthy();
   });
 
-  it("decrements remaining after requests", () => {
+  it("decrements remaining after requests", async () => {
     const req = makeRequest();
     const limit = 10;
 
-    checkRateLimit(req, limit); // 1 request consumed
-    checkRateLimit(req, limit); // 2 requests consumed
+    await checkRateLimit(req, limit); // 1 request consumed
+    await checkRateLimit(req, limit); // 2 requests consumed
 
-    const headers = getRateLimitHeaders(req, limit);
+    const headers = await getRateLimitHeaders(req, limit);
     expect(headers["X-RateLimit-Limit"]).toBe("10");
     expect(headers["X-RateLimit-Remaining"]).toBe("8");
   });
 
-  it("shows 0 remaining when fully consumed", () => {
+  it("shows 0 remaining when fully consumed", async () => {
     const req = makeRequest();
     const limit = 2;
 
-    checkRateLimit(req, limit);
-    checkRateLimit(req, limit);
+    await checkRateLimit(req, limit);
+    await checkRateLimit(req, limit);
 
-    const headers = getRateLimitHeaders(req, limit);
+    const headers = await getRateLimitHeaders(req, limit);
     expect(headers["X-RateLimit-Remaining"]).toBe("0");
   });
 });

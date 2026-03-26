@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { getDb } from "@/lib/storage/db";
+import { createLogger } from "@/lib/logging/logger";
 import type { Job } from "./types";
 
 const MAX_RETRIES = 3;
@@ -13,8 +15,88 @@ function signPayload(payload: string, secret: string): string {
 }
 
 /**
+ * Log a webhook delivery attempt to Postgres.
+ * Never throws — logging must not break delivery flow.
+ */
+async function logWebhookDelivery(entry: {
+  readonly jobId: string;
+  readonly url: string;
+  readonly status: "pending" | "delivered" | "failed";
+  readonly attempts: number;
+  readonly responseStatus?: number;
+  readonly error?: string;
+}): Promise<void> {
+  try {
+    const sql = getDb();
+    if (!sql) return;
+
+    await sql`
+      INSERT INTO webhook_deliveries (
+        job_id, url, status, attempts, last_attempt_at,
+        response_status, error
+      ) VALUES (
+        ${entry.jobId}, ${entry.url}, ${entry.status},
+        ${entry.attempts}, NOW(),
+        ${entry.responseStatus ?? null}, ${entry.error ?? null}
+      )
+      ON CONFLICT (job_id) DO UPDATE SET
+        status = EXCLUDED.status,
+        attempts = EXCLUDED.attempts,
+        last_attempt_at = EXCLUDED.last_attempt_at,
+        response_status = EXCLUDED.response_status,
+        error = EXCLUDED.error
+    `;
+  } catch (error) {
+    createLogger({ module: "webhook" }).error("Failed to log delivery", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Query webhook delivery status for a job.
+ */
+export async function getWebhookDeliveryStatus(
+  jobId: string,
+): Promise<{
+  status: string;
+  attempts: number;
+  lastAttemptAt: string | null;
+  responseStatus: number | null;
+  error: string | null;
+} | null> {
+  try {
+    const sql = getDb();
+    if (!sql) return null;
+
+    const rows = await sql`
+      SELECT status, attempts, last_attempt_at, response_status, error
+      FROM webhook_deliveries
+      WHERE job_id = ${jobId}
+      LIMIT 1
+    `;
+
+    if (!rows.length) return null;
+
+    const row = rows[0];
+    return {
+      status: row.status as string,
+      attempts: row.attempts as number,
+      lastAttemptAt: row.last_attempt_at
+        ? (row.last_attempt_at as Date).toISOString()
+        : null,
+      responseStatus: row.response_status as number | null,
+      error: row.error as string | null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Deliver a webhook for a completed/failed job.
  * Retries up to 3 times with exponential backoff.
+ * Logs delivery status to Postgres for audit trail.
  * Never throws — logs errors internally.
  */
 export async function deliverWebhook(
@@ -23,6 +105,7 @@ export async function deliverWebhook(
 ): Promise<boolean> {
   if (!job.webhookUrl) return false;
 
+  const log = createLogger({ jobId: job.id, module: "webhook", url: job.webhookUrl });
   const event =
     job.status === "completed"
       ? "generation.completed"
@@ -55,26 +138,36 @@ export async function deliverWebhook(
       });
 
       if (response.ok) {
+        await logWebhookDelivery({
+          jobId: job.id,
+          url: job.webhookUrl,
+          status: "delivered",
+          attempts: attempt + 1,
+          responseStatus: response.status,
+        });
         return true;
       }
 
       // 4xx client error — receiver rejected; retrying won't help
       if (response.status >= 400 && response.status < 500) {
-        console.warn(
-          `[webhook] Delivery rejected by receiver for job ${job.id}: ${response.status}`,
-        );
+        log.warn("Delivery rejected by receiver", { status: response.status });
+        await logWebhookDelivery({
+          jobId: job.id,
+          url: job.webhookUrl,
+          status: "failed",
+          attempts: attempt + 1,
+          responseStatus: response.status,
+          error: `Receiver rejected with ${response.status}`,
+        });
         return false;
       }
 
       // 5xx server error — retry
-      console.warn(
-        `[webhook] Attempt ${attempt + 1} failed for job ${job.id}: ${response.status}`,
-      );
+      log.warn(`Attempt ${attempt + 1} failed`, { status: response.status });
     } catch (err) {
-      console.warn(
-        `[webhook] Attempt ${attempt + 1} error for job ${job.id}:`,
-        err instanceof Error ? err.message : err,
-      );
+      log.warn(`Attempt ${attempt + 1} error`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // Wait before retry (unless last attempt)
@@ -85,9 +178,14 @@ export async function deliverWebhook(
     }
   }
 
-  console.error(
-    `[webhook] All ${MAX_RETRIES + 1} attempts failed for job ${job.id} → ${job.webhookUrl}`,
-  );
+  log.error(`All ${MAX_RETRIES + 1} attempts failed`);
+  await logWebhookDelivery({
+    jobId: job.id,
+    url: job.webhookUrl,
+    status: "failed",
+    attempts: MAX_RETRIES + 1,
+    error: "All retry attempts exhausted",
+  });
   return false;
 }
 

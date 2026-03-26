@@ -31,6 +31,7 @@ import {
   getCachedResult,
   setCachedResult,
 } from "@/lib/cache/result-cache";
+import { createLogger } from "@/lib/logging/logger";
 import type { CachedGenerateResult } from "@/lib/cache/result-cache";
 
 export const maxDuration = 60;
@@ -41,15 +42,15 @@ export function OPTIONS(request: Request) {
 }
 
 /** Build common response headers (request ID + CORS + rate limit). */
-function commonHeaders(
+async function commonHeaders(
   request: Request,
   requestId: string,
   clientRateLimit?: number,
-): Record<string, string> {
+): Promise<Record<string, string>> {
   return {
     ...requestIdHeaders(requestId),
     ...corsHeaders(request),
-    ...getRateLimitHeaders(request, clientRateLimit),
+    ...(await getRateLimitHeaders(request, clientRateLimit)),
   };
 }
 
@@ -68,6 +69,7 @@ async function generateImages(
     const { context, cached } = await cortex.getBrandContext(brand, {
       topic: body.topic,
       persona: body.persona,
+      audience: body.audience,
       industry: body.industry,
     });
 
@@ -109,7 +111,7 @@ export async function POST(
   // Per-client rate limit
   const clientRateLimit =
     authResult.type === "client" ? authResult.client.rateLimit : undefined;
-  const rateLimitError = checkRateLimit(request, clientRateLimit);
+  const rateLimitError = await checkRateLimit(request, clientRateLimit);
   if (rateLimitError) {
     const h = { ...baseHeaders(), ...corsHeaders(request) };
     Object.entries(h).forEach(([k, v]) => rateLimitError.headers.set(k, v));
@@ -119,7 +121,7 @@ export async function POST(
   // Validate body
   const validation = await validateRequestBody(request, GenerateRequestSchema);
   if (!validation.success) {
-    const h = commonHeaders(request, requestId, clientRateLimit);
+    const h = await commonHeaders(request, requestId, clientRateLimit);
     Object.entries(h).forEach(([k, v]) => validation.response.headers.set(k, v));
     return validation.response;
   }
@@ -148,12 +150,12 @@ export async function POST(
             message: `Your API key does not have access to brand "${brand}".`,
           },
         },
-        { status: 403, headers: commonHeaders(request, requestId, clientRateLimit) },
+        { status: 403, headers: await commonHeaders(request, requestId, clientRateLimit) },
       );
     }
   }
 
-  const headers = commonHeaders(request, requestId, clientRateLimit);
+  const headers = await commonHeaders(request, requestId, clientRateLimit);
 
   // ─── Async path ───
   if (body.async) {
@@ -217,6 +219,8 @@ export async function POST(
       brand,
       purpose: body.purpose,
       style: body.style,
+      persona: body.persona,
+      audience: body.audience,
       quality: body.quality,
       dimensions: body.dimensions,
       count: body.count,
@@ -303,7 +307,8 @@ export async function POST(
       { headers },
     );
   } catch (error) {
-    console.error(`[generate] [${requestId}] Error:`, error);
+    const log = createLogger({ requestId, module: "generate" });
+    log.error("Generation failed", { error: error instanceof Error ? error.message : String(error) });
 
     if (error instanceof QueueTimeoutError) {
       return NextResponse.json(
@@ -362,7 +367,8 @@ async function tryDeliverWebhook(job: Job | null, jobId: string): Promise<void> 
   if (!job?.webhookUrl) return;
   const secret = getEnv().WEBHOOK_SECRET;
   if (!secret) {
-    console.warn(`[async-job] [${jobId}] webhookUrl configured but WEBHOOK_SECRET missing — skipping delivery`);
+    const log = createLogger({ jobId, module: "async-job" });
+    log.warn("webhookUrl configured but WEBHOOK_SECRET missing — skipping delivery");
     return;
   }
   await deliverWebhook(job, secret);
@@ -389,6 +395,8 @@ async function processAsyncJob(
       brand,
       purpose: body.purpose,
       style: body.style,
+      persona: body.persona,
+      audience: body.audience,
       quality: body.quality,
       dimensions: body.dimensions,
       count: body.count,
@@ -446,7 +454,9 @@ async function processAsyncJob(
       timestamp: new Date(),
     });
   } catch (error) {
-    console.error(`[async-job] [${jobId}] Error:`, error);
+    createLogger({ jobId, module: "async-job" }).error("Async job failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     await updateJob(jobId, {
       status: "failed",
       error:

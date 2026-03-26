@@ -10,6 +10,7 @@ import {
   METHOD_NOT_FOUND,
   AUTH_REQUIRED,
   RATE_LIMITED,
+  SCOPE_DENIED,
   INTERNAL_ERROR,
 } from "@/lib/mcp/errors";
 import {
@@ -18,6 +19,8 @@ import {
   handleGenerateImage,
 } from "@/lib/mcp/handlers";
 import { authenticateRequest } from "@/lib/middleware/auth";
+import { getEnv } from "@/lib/config/env";
+import { createLogger } from "@/lib/logging/logger";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
 import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { corsHeaders, handlePreflight } from "@/lib/middleware/cors";
@@ -97,7 +100,7 @@ export async function POST(
         );
       }
 
-      const rateLimitError = checkRateLimit(request);
+      const rateLimitError = await checkRateLimit(request);
       if (rateLimitError) {
         return NextResponse.json(
           buildErrorResponse(id, RATE_LIMITED, "Rate limit exceeded"),
@@ -116,6 +119,19 @@ export async function POST(
           return NextResponse.json(handleListPurposes(id), { headers });
 
         case "generate-image": {
+          // Brand scope check
+          const brand = typeof toolArgs.brand === "string" ? toolArgs.brand : getEnv().DEFAULT_BRAND;
+          if (
+            authResult?.type === "client" &&
+            authResult.client.scopes?.length &&
+            !authResult.client.scopes.includes(brand)
+          ) {
+            return NextResponse.json(
+              buildErrorResponse(id, SCOPE_DENIED, `Your API key does not have access to brand "${brand}".`),
+              { headers },
+            );
+          }
+
           const clientId = authResult?.type === "client" ? authResult.client.clientId : "master";
           const clientName = authResult?.type === "client" ? authResult.client.clientName : "master";
           const result = await handleGenerateImage(id, toolArgs, (meta) => {
@@ -144,7 +160,9 @@ export async function POST(
           );
       }
     } catch (error) {
-      console.error(`[mcp] [${requestId}] Dispatch error:`, error);
+      createLogger({ requestId, module: "mcp" }).error("Dispatch error", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return NextResponse.json(
         buildErrorResponse(id, INTERNAL_ERROR, "Internal error"),
         { headers },
