@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
 
-/** Default allowed origins (Apexure internal domains). */
-const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
-  "https://orbitimage.apexure.com",
-  "https://cortex.apexure.com",
-  "https://apexure.com",
-];
-
 const ALLOWED_METHODS = "GET, POST, DELETE, OPTIONS";
 const ALLOWED_HEADERS = "Content-Type, Authorization, X-Request-Id";
 const MAX_AGE = "86400"; // 24 hours
@@ -43,7 +36,7 @@ function isOriginAllowed(origin: string | null): boolean {
     // Invalid URL — deny
   }
 
-  return DEFAULT_ALLOWED_ORIGINS.includes(origin);
+  return false;
 }
 
 /**

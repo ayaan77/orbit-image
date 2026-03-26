@@ -24,6 +24,14 @@ import { estimateCost } from "@/lib/usage/cost";
 import { createJob, getJob, updateJob } from "@/lib/jobs/store";
 import type { Job } from "@/lib/jobs/types";
 import { deliverWebhook } from "@/lib/jobs/webhook";
+import { getGenerateQueue } from "@/lib/queue/concurrency-queue";
+import { QueueTimeoutError } from "@/lib/queue/errors";
+import {
+  computeCacheKey,
+  getCachedResult,
+  setCachedResult,
+} from "@/lib/cache/result-cache";
+import type { CachedGenerateResult } from "@/lib/cache/result-cache";
 
 export const maxDuration = 60;
 
@@ -49,26 +57,35 @@ async function generateImages(
   body: GenerateRequest,
   brand: string,
 ) {
-  const cortex = createCachedCortexClient(brand);
-  const { context, cached } = await cortex.getBrandContext(brand, {
-    topic: body.topic,
-    persona: body.persona,
-    industry: body.industry,
+  const env = getEnv();
+  const queue = getGenerateQueue(
+    env.MAX_CONCURRENT_GENERATES,
+    env.GENERATE_QUEUE_TIMEOUT_MS,
+  );
+
+  return queue.enqueue(async () => {
+    const cortex = createCachedCortexClient(brand);
+    const { context, cached } = await cortex.getBrandContext(brand, {
+      topic: body.topic,
+      persona: body.persona,
+      industry: body.industry,
+    });
+
+    const promptBundle = assemblePrompt(body, context);
+    const provider = getProvider();
+    const generatedImages = await provider.generate(promptBundle);
+
+    const images = generatedImages.map((img) => ({
+      base64: img.data.toString("base64"),
+      prompt: img.prompt,
+      mimeType: img.mimeType,
+      dimensions: img.dimensions,
+    }));
+
+    return { images, cached };
   });
-
-  const promptBundle = assemblePrompt(body, context);
-  const provider = getProvider();
-  const generatedImages = await provider.generate(promptBundle);
-
-  const images = generatedImages.map((img) => ({
-    base64: img.data.toString("base64"),
-    prompt: img.prompt,
-    mimeType: img.mimeType,
-    dimensions: img.dimensions,
-  }));
-
-  return { images, cached };
 }
+
 
 export async function POST(
   request: Request,
@@ -190,10 +207,70 @@ export async function POST(
     }
   }
 
-  // ─── Sync path (existing behavior) ───
+  // ─── Sync path ───
+  const bypassCache = request.headers.get("X-Cache-Bypass") === "true";
+
   try {
+    // Check image result cache first
+    const cacheKey = computeCacheKey({
+      topic: body.topic,
+      brand,
+      purpose: body.purpose,
+      style: body.style,
+      quality: body.quality,
+      dimensions: body.dimensions,
+      count: body.count,
+    });
+
+    const cacheHit = bypassCache ? null : await getCachedResult(cacheKey);
+
+    if (cacheHit) {
+      const processingTimeMs = Date.now() - startTime;
+
+      after(
+        logUsage({
+          clientId,
+          clientName,
+          brand,
+          purpose: body.purpose,
+          style: body.style,
+          imageCount: body.count,
+          quality: body.quality,
+          estimatedCostUsd: 0,
+          processingTimeMs,
+          cached: true,
+          endpoint: "rest",
+          timestamp: new Date(),
+        }),
+      );
+
+      return NextResponse.json(
+        {
+          success: true as const,
+          images: cacheHit.images,
+          brand,
+          metadata: {
+            processingTimeMs,
+            cortexDataCached: true,
+            resultCached: true,
+          },
+        },
+        { headers },
+      );
+    }
+
+    // Cache miss — generate via queue
     const { images, cached } = await generateImages(body, brand);
     const processingTimeMs = Date.now() - startTime;
+
+    // Store in cache (fire-and-forget)
+    after(
+      setCachedResult(cacheKey, {
+        images,
+        brand,
+        createdAt: new Date().toISOString(),
+      }),
+    );
 
     after(
       logUsage({
@@ -220,12 +297,26 @@ export async function POST(
         metadata: {
           processingTimeMs,
           cortexDataCached: cached,
+          resultCached: false,
         },
       },
       { headers },
     );
   } catch (error) {
     console.error(`[generate] [${requestId}] Error:`, error);
+
+    if (error instanceof QueueTimeoutError) {
+      return NextResponse.json(
+        {
+          success: false as const,
+          error: {
+            code: "QUEUE_TIMEOUT",
+            message: "Server is busy. Please retry shortly.",
+          },
+        },
+        { status: 503, headers },
+      );
+    }
 
     if (error instanceof CortexError) {
       return NextResponse.json(
@@ -292,7 +383,37 @@ async function processAsyncJob(
   try {
     await updateJob(jobId, { status: "processing" });
 
-    const { images, cached } = await generateImages(body, brand);
+    // Check cache for async jobs too
+    const cacheKey = computeCacheKey({
+      topic: body.topic,
+      brand,
+      purpose: body.purpose,
+      style: body.style,
+      quality: body.quality,
+      dimensions: body.dimensions,
+      count: body.count,
+    });
+
+    const cacheHit = await getCachedResult(cacheKey);
+    let images: CachedGenerateResult["images"];
+    let cached: boolean;
+
+    if (cacheHit) {
+      images = cacheHit.images;
+      cached = true;
+    } else {
+      const generated = await generateImages(body, brand);
+      images = generated.images;
+      cached = generated.cached;
+
+      // Store in cache
+      await setCachedResult(cacheKey, {
+        images,
+        brand,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     const processingTimeMs = Date.now() - startTime;
 
     const result = {
@@ -300,6 +421,7 @@ async function processAsyncJob(
       brand,
       processingTimeMs,
       cortexDataCached: cached,
+      resultCached: !!cacheHit,
     };
 
     const updatedJob = await updateJob(jobId, {

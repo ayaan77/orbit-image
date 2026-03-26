@@ -50,6 +50,11 @@ async function keyFingerprint(key: string): Promise<string> {
  * Check if the current API key is a master key by probing an admin endpoint.
  * Caches the result in localStorage keyed by a fingerprint of the API key,
  * so it only re-probes when the key actually changes.
+ *
+ * Performance note: The probe hits GET /api/admin/keys which lists all clients
+ * from Redis. This is acceptable because it only fires when the key fingerprint
+ * changes (i.e., user enters a new API key). If the client list grows large,
+ * consider adding a lightweight HEAD /api/admin/keys or /api/auth/whoami endpoint.
  */
 export async function detectAdmin(): Promise<boolean> {
   const key = getApiKey();

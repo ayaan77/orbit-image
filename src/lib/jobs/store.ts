@@ -50,6 +50,12 @@ export async function getJob(id: string): Promise<Job | null> {
 /**
  * Update a job's status and optionally set result or error.
  * Returns the updated job, or null if job not found.
+ *
+ * Note: This uses a non-atomic read-then-write pattern. This is acceptable
+ * because each job has exactly one writer — the after() callback in the
+ * generate route — which processes sequentially per request. If concurrent
+ * writers are ever introduced (e.g., manual retry), this must be replaced
+ * with a Redis WATCH/MULTI transaction or Lua script for atomicity.
  */
 export async function updateJob(
   id: string,

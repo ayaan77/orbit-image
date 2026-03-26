@@ -25,6 +25,9 @@ const envSchema = z.object({
   KV_REST_API_TOKEN: z.string().optional(),
   POSTGRES_URL: z.string().optional(),
   WEBHOOK_SECRET: z.string().min(16).optional(),
+  MAX_CONCURRENT_GENERATES: z.coerce.number().int().positive().default(3),
+  GENERATE_QUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  IMAGE_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isMasterKey, unauthorizedResponse } from "@/lib/middleware/admin-auth";
 import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { createApiKey, revokeApiKey, listClients } from "@/lib/auth/keys";
+import { isPublicHttpsUrl } from "@/lib/validation/webhook-url";
 
 /**
  * Admin key management — protected by master key only.
@@ -42,9 +43,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  if (body.defaultWebhookUrl !== undefined && !body.defaultWebhookUrl.startsWith("https://")) {
+  if (body.defaultWebhookUrl !== undefined && !isPublicHttpsUrl(body.defaultWebhookUrl)) {
     return NextResponse.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "defaultWebhookUrl must use HTTPS" } },
+      { success: false, error: { code: "BAD_REQUEST", message: "defaultWebhookUrl must be a public HTTPS endpoint" } },
       { status: 400, headers }
     );
   }
