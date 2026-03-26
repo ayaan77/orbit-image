@@ -6,6 +6,8 @@ import {
   mockBrandVoice,
   mockCompany,
   mockProof,
+  mockPersonas,
+  mockAudiences,
 } from "../../mocks/cortex-responses";
 
 const baseContext: BrandContext = {
@@ -142,5 +144,79 @@ describe("assemblePrompt", () => {
       baseContext
     );
     expect(bundle.count).toBe(3);
+  });
+
+  it("includes persona context when persona matches", () => {
+    const contextWithPersonas: BrandContext = {
+      ...baseContext,
+      personas: mockPersonas,
+    };
+    const bundle = assemblePrompt(
+      {
+        topic: "Lead generation",
+        purpose: "ad-creative",
+        persona: "Marketing Director",
+        count: 1,
+        quality: "hd",
+      },
+      contextWithPersonas,
+    );
+
+    expect(bundle.positive).toContain("Targeting persona: Marketing Director");
+    expect(bundle.positive).toContain("VP of Marketing");
+    expect(bundle.positive).toContain("increase lead quality");
+  });
+
+  it("includes audience context when audience matches", () => {
+    const contextWithAudiences: BrandContext = {
+      ...baseContext,
+      audiences: mockAudiences,
+    };
+    const bundle = assemblePrompt(
+      {
+        topic: "Enterprise solutions",
+        purpose: "social-og",
+        audience: "Enterprise B2B",
+        count: 1,
+        quality: "hd",
+      },
+      contextWithAudiences,
+    );
+
+    expect(bundle.positive).toContain("Target audience: Enterprise B2B");
+  });
+
+  it("skips persona context when persona does not match", () => {
+    const contextWithPersonas: BrandContext = {
+      ...baseContext,
+      personas: mockPersonas,
+    };
+    const bundle = assemblePrompt(
+      {
+        topic: "Test",
+        purpose: "blog-hero",
+        persona: "nonexistent",
+        count: 1,
+        quality: "hd",
+      },
+      contextWithPersonas,
+    );
+
+    expect(bundle.positive).not.toContain("Targeting persona");
+  });
+
+  it("skips persona/audience context when not requested", () => {
+    const contextWithAll: BrandContext = {
+      ...baseContext,
+      personas: mockPersonas,
+      audiences: mockAudiences,
+    };
+    const bundle = assemblePrompt(
+      { topic: "Test", purpose: "blog-hero", count: 1, quality: "hd" },
+      contextWithAll,
+    );
+
+    expect(bundle.positive).not.toContain("Targeting persona");
+    expect(bundle.positive).not.toContain("Target audience");
   });
 });

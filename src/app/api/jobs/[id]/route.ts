@@ -4,6 +4,7 @@ import { authResultToResponse } from "@/lib/middleware/auth-helpers";
 import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { corsHeaders, handlePreflight } from "@/lib/middleware/cors";
 import { getJob } from "@/lib/jobs/store";
+import { getWebhookDeliveryStatus } from "@/lib/jobs/webhook";
 import type { ErrorResponse } from "@/types/api";
 
 interface JobResponse {
@@ -79,6 +80,13 @@ export async function GET(
     );
   }
 
+  // Optionally include webhook delivery status
+  const url = new URL(request.url);
+  const includeWebhook = url.searchParams.get("include") === "webhook";
+  const webhook = includeWebhook
+    ? await getWebhookDeliveryStatus(job.id)
+    : undefined;
+
   return NextResponse.json(
     {
       success: true as const,
@@ -89,6 +97,7 @@ export async function GET(
         completedAt: job.completedAt,
         result: job.status === "completed" ? job.result : undefined,
         error: job.status === "failed" ? job.error : undefined,
+        ...(webhook !== undefined ? { webhook } : {}),
       },
     },
     { headers },

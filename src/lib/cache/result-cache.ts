@@ -10,6 +10,8 @@ export interface CacheKeyParams {
   readonly brand: string;
   readonly purpose: string;
   readonly style?: string;
+  readonly persona?: string;
+  readonly audience?: string;
   readonly quality: string;
   readonly dimensions?: { readonly width: number; readonly height: number };
   readonly count: number;
@@ -34,9 +36,11 @@ export interface CachedGenerateResult {
  */
 export function computeCacheKey(params: CacheKeyParams): string {
   const normalized = {
+    audience: params.audience ?? null,
     brand: params.brand,
     count: params.count,
     dimensions: params.dimensions ?? null,
+    persona: params.persona ?? null,
     purpose: params.purpose,
     quality: params.quality,
     style: params.style ?? null,

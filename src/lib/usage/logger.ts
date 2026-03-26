@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/storage/db";
+import { createLogger } from "@/lib/logging/logger";
 import type { UsageEntry } from "./types";
 
 /**
@@ -25,6 +26,8 @@ export async function logUsage(entry: UsageEntry): Promise<void> {
     `;
   } catch (error) {
     // Log but never throw — usage tracking is non-critical
-    console.error("[usage] Failed to log usage:", error);
+    createLogger({ module: "usage" }).error("Failed to log usage", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }

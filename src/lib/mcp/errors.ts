@@ -14,6 +14,7 @@ export const AUTH_REQUIRED = -32001;
 export const RATE_LIMITED = -32002;
 export const PROVIDER_ERROR = -32003;
 export const CORTEX_ERROR = -32004;
+export const SCOPE_DENIED = -32005;
 
 // ─── Helpers ───
 

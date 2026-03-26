@@ -4,6 +4,8 @@ import type {
   CompanyData,
   BrandInfo,
   ProofData,
+  Persona,
+  Audience,
 } from "@/lib/cortex/types";
 
 export const mockColours: BrandColours = {
@@ -80,6 +82,38 @@ export const mockProof: ProofData = {
     },
   ],
 };
+
+export const mockPersonas: Persona[] = [
+  {
+    id: "cmo",
+    name: "Marketing Director",
+    role: "VP of Marketing at a mid-size B2B company",
+    goals: ["increase lead quality", "reduce cost per acquisition"],
+    pain_points: ["low conversion rates on landing pages"],
+    objections: ["too expensive", "long implementation time"],
+  },
+  {
+    id: "dev",
+    name: "Developer",
+    role: "Full-stack engineer",
+    goals: ["fast integration", "clean API"],
+    pain_points: ["poor documentation"],
+  },
+];
+
+export const mockAudiences: Audience[] = [
+  {
+    id: "enterprise",
+    name: "Enterprise B2B",
+    icp: { company_size: "500+", industry: "Technology" },
+    content_strategy: { tone: "professional", focus: "ROI" },
+  },
+  {
+    id: "smb",
+    name: "Small Business",
+    icp: { company_size: "10-50" },
+  },
+];
 
 /** Wraps a value in the MCP JSON-RPC response format */
 export function wrapMcpResponse(data: unknown) {

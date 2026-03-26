@@ -41,10 +41,16 @@ export default function Home() {
 
 function HomeContent() {
   const [state, setState] = useState<AppState>({ status: "idle" });
-  const [apiKeyPresent, setApiKeyPresent] = useState(() => hasApiKey());
-  const [isAdmin, setIsAdmin] = useState(() => getIsAdmin());
+  const [apiKeyPresent, setApiKeyPresent] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { showToast } = useToast();
+
+  // Hydration-safe: read localStorage only on the client
+  useEffect(() => {
+    setApiKeyPresent(hasApiKey());
+    setIsAdmin(getIsAdmin());
+  }, []);
 
   // Detect admin status when API key is present
   useEffect(() => {

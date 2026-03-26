@@ -61,7 +61,10 @@ jobs:
           fi
 
           # Run migrations
-          psql "$DATABASE_URL" -f scripts/migrate-001-usage.sql
+          for migration in scripts/migrate-*.sql; do
+            echo "Running $migration..."
+            psql "$DATABASE_URL" -f "$migration"
+          done
         env:
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
