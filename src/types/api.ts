@@ -45,6 +45,29 @@ export const GenerateRequestSchema = z.object({
   dimensions: DimensionsSchema.optional(),
   count: z.number().int().min(1).max(4).default(1),
   quality: z.enum(["standard", "hd"]).default("hd"),
+
+  // Async delivery
+  async: z.boolean().optional(),
+  webhook_url: z
+    .string()
+    .url()
+    .refine(
+      (url) => {
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol !== "https:") return false;
+          const host = parsed.hostname;
+          // Block private/loopback/link-local ranges
+          const blocked =
+            /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.|::1$|fc00:|fd)/i;
+          return !blocked.test(host);
+        } catch {
+          return false;
+        }
+      },
+      { message: "Webhook URL must be a public HTTPS endpoint" },
+    )
+    .optional(),
 });
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
 
@@ -63,6 +86,13 @@ export interface GenerateResponse {
     readonly processingTimeMs: number;
     readonly cortexDataCached: boolean;
   };
+}
+
+export interface AsyncGenerateResponse {
+  readonly success: true;
+  readonly async: true;
+  readonly jobId: string;
+  readonly statusUrl: string;
 }
 
 export interface ErrorResponse {

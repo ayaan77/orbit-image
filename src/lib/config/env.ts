@@ -24,6 +24,7 @@ const envSchema = z.object({
   KV_REST_API_URL: z.string().url().optional(),
   KV_REST_API_TOKEN: z.string().optional(),
   POSTGRES_URL: z.string().optional(),
+  WEBHOOK_SECRET: z.string().min(16).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

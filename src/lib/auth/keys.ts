@@ -46,7 +46,12 @@ export async function lookupApiKey(
  * Stores only the hash in Redis.
  */
 export async function createApiKey(
-  clientName: string
+  clientName: string,
+  opts?: {
+    readonly rateLimit?: number;
+    readonly scopes?: readonly string[];
+    readonly defaultWebhookUrl?: string;
+  },
 ): Promise<{ rawKey: string; client: ClientInfo }> {
   const kv = getKv();
   if (!kv) {
@@ -62,6 +67,9 @@ export async function createApiKey(
     clientName,
     createdAt: new Date().toISOString(),
     active: true,
+    ...(opts?.rateLimit !== undefined && { rateLimit: opts.rateLimit }),
+    ...(opts?.scopes !== undefined && { scopes: opts.scopes }),
+    ...(opts?.defaultWebhookUrl !== undefined && { defaultWebhookUrl: opts.defaultWebhookUrl }),
   };
 
   // Store key hash → client info
@@ -105,11 +113,10 @@ export async function listClients(): Promise<ClientInfo[]> {
   const mapping = await kv.hgetall<Record<string, string>>(REDIS_CLIENTS_SET);
   if (!mapping) return [];
 
-  const clients: ClientInfo[] = [];
-  for (const hash of Object.values(mapping)) {
-    const client = await kv.get<ClientInfo>(redisKey(hash));
-    if (client) clients.push(client);
-  }
+  const hashes = Object.values(mapping);
+  const results = await Promise.all(
+    hashes.map((hash) => kv.get<ClientInfo>(redisKey(hash))),
+  );
 
-  return clients;
+  return results.filter((c): c is ClientInfo => c !== null);
 }

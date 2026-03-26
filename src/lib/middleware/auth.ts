@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "crypto";
 import { getEnv } from "@/lib/config/env";
-import { hashApiKey, lookupApiKey } from "@/lib/auth/keys";
+import { hashApiKey, isValidKeyFormat, lookupApiKey } from "@/lib/auth/keys";
 import type { AuthResult } from "@/lib/auth/types";
 
 function safeCompare(a: string, b: string): boolean {
@@ -33,6 +33,10 @@ export async function authenticateRequest(
   }
 
   // Slow path: look up client key in Redis
+  if (!isValidKeyFormat(token)) {
+    return { type: "error", code: "UNAUTHORIZED", message: "Invalid API key" };
+  }
+
   try {
     const keyHash = hashApiKey(token);
     const client = await lookupApiKey(keyHash);

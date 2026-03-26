@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/middleware/auth";
+import { isMasterKey, unauthorizedResponse } from "@/lib/middleware/admin-auth";
+import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { getDb } from "@/lib/storage/db";
 
 /**
@@ -8,25 +9,15 @@ import { getDb } from "@/lib/storage/db";
  * GET /api/admin/usage?clientId=...&brand=...&from=...&to=...&limit=...&offset=...
  */
 
-function isMasterKey(request: Request): Promise<boolean> {
-  return authenticateRequest(request).then((r) => r.type === "master");
-}
-
-function unauthorized() {
-  return NextResponse.json(
-    { success: false, error: { code: "UNAUTHORIZED", message: "Master key required" } },
-    { status: 401 }
-  );
-}
-
 export async function GET(request: Request): Promise<NextResponse> {
-  if (!(await isMasterKey(request))) return unauthorized();
+  const headers = requestIdHeaders(getRequestId(request));
+  if (!(await isMasterKey(request))) return unauthorizedResponse(headers);
 
   const sql = getDb();
   if (!sql) {
     return NextResponse.json(
       { success: false, error: { code: "NOT_CONFIGURED", message: "POSTGRES_URL is not configured" } },
-      { status: 503 }
+      { status: 503, headers }
     );
   }
 
@@ -41,8 +32,21 @@ export async function GET(request: Request): Promise<NextResponse> {
   const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
   // Parse date filters (null means no filter)
-  const fromDate = from ? new Date(from).toISOString() : null;
-  const toDate = to ? new Date(to).toISOString() : null;
+  function parseDate(val: string | null): string | null {
+    if (!val) return null;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
+  const fromDate = parseDate(from);
+  const toDate = parseDate(to);
+
+  if ((from && !fromDate) || (to && !toDate)) {
+    return NextResponse.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Invalid date format for from/to parameter" } },
+      { status: 400, headers },
+    );
+  }
 
   try {
     // Use tagged templates with always-present conditions (NULL = no filter)
@@ -68,24 +72,27 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     const summary = countResult[0] as { total: number; total_cost: number; total_images: number };
 
-    return NextResponse.json({
-      success: true,
-      usage: rows,
-      pagination: {
-        total: summary.total,
-        limit,
-        offset,
+    return NextResponse.json(
+      {
+        success: true,
+        usage: rows,
+        pagination: {
+          total: summary.total,
+          limit,
+          offset,
+        },
+        summary: {
+          totalCostUsd: Number(summary.total_cost),
+          totalImages: summary.total_images,
+        },
       },
-      summary: {
-        totalCostUsd: Number(summary.total_cost),
-        totalImages: summary.total_images,
-      },
-    });
+      { headers },
+    );
   } catch (error) {
     console.error("[admin/usage] Query error:", error);
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to query usage logs" } },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
 }
