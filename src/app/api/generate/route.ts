@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { authenticateRequest } from "@/lib/middleware/auth";
+import { authResultToResponse } from "@/lib/middleware/auth-helpers";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
 import { validateRequestBody } from "@/lib/middleware/validation";
 import { GenerateRequestSchema } from "@/types/api";
@@ -10,6 +12,8 @@ import { ProviderError } from "@/lib/providers/types";
 import { assemblePrompt } from "@/lib/prompt/engine";
 import { getProvider } from "@/lib/providers/factory";
 import { getEnv } from "@/lib/config/env";
+import { logUsage } from "@/lib/usage/logger";
+import { estimateCost } from "@/lib/usage/cost";
 
 export const maxDuration = 60;
 
@@ -19,7 +23,8 @@ export async function POST(
   const startTime = Date.now();
 
   // Auth
-  const authError = authenticateRequest(request);
+  const authResult = await authenticateRequest(request);
+  const authError = authResultToResponse(authResult);
   if (authError) return authError;
 
   // Rate limit
@@ -62,12 +67,32 @@ export async function POST(
       dimensions: img.dimensions,
     }));
 
+    const processingTimeMs = Date.now() - startTime;
+
+    // Log usage asynchronously (non-blocking)
+    const clientId = authResult.type === "client" ? authResult.client.clientId : "master";
+    const clientName = authResult.type === "client" ? authResult.client.clientName : "master";
+    after(logUsage({
+      clientId,
+      clientName,
+      brand,
+      purpose: body.purpose,
+      style: body.style,
+      imageCount: requestWithDefaults.count,
+      quality: requestWithDefaults.quality,
+      estimatedCostUsd: estimateCost(requestWithDefaults.count, requestWithDefaults.quality),
+      processingTimeMs,
+      cached,
+      endpoint: "rest",
+      timestamp: new Date(),
+    }));
+
     return NextResponse.json({
       success: true as const,
       images,
       brand,
       metadata: {
-        processingTimeMs: Date.now() - startTime,
+        processingTimeMs,
         cortexDataCached: cached,
       },
     });

@@ -1,6 +1,17 @@
-export const metadata = {
-  title: "Orbit Image",
-  description: "Brand-aware image generation service",
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+export const metadata: Metadata = {
+  title: "Orbit Image — Brand-Aware Image Generation",
+  description:
+    "Generate on-brand images for blogs, social media, ads, and more. Powered by AI with brand context from Cortex.",
 };
 
 export default function RootLayout({
@@ -9,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

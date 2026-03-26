@@ -65,7 +65,10 @@ async function callTool<T>(
 
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+    },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
@@ -76,7 +79,22 @@ async function callTool<T>(
     );
   }
 
-  const json = (await response.json()) as JsonRpcResponse;
+  // Cortex uses Streamable HTTP — may return SSE or plain JSON
+  const contentType = response.headers.get("content-type") ?? "";
+  let json: JsonRpcResponse;
+
+  if (contentType.includes("text/event-stream")) {
+    const text = await response.text();
+    const dataLine = text
+      .split("\n")
+      .find((line) => line.startsWith("data: "));
+    if (!dataLine) {
+      throw new CortexError(`Cortex returned empty SSE stream for tool: ${toolName}`);
+    }
+    json = JSON.parse(dataLine.slice(6)) as JsonRpcResponse;
+  } else {
+    json = (await response.json()) as JsonRpcResponse;
+  }
 
   if (json.error) {
     throw new CortexError(
@@ -84,12 +102,18 @@ async function callTool<T>(
     );
   }
 
-  if (!json.result?.content?.[0]?.text) {
+  // Handle isError flag in content (Cortex wraps some errors this way)
+  const result = json.result as { content?: readonly { type: string; text: string }[]; isError?: boolean } | undefined;
+  if (result?.isError) {
+    throw new CortexError(`Cortex tool error: ${result.content?.[0]?.text ?? "Unknown error"}`);
+  }
+
+  if (!result?.content?.[0]?.text) {
     throw new CortexError(`Cortex returned empty result for tool: ${toolName}`);
   }
 
   try {
-    return JSON.parse(json.result.content[0].text) as T;
+    return JSON.parse(result.content[0].text) as T;
   } catch {
     throw new CortexError(
       `Cortex returned invalid JSON for tool: ${toolName}`
@@ -102,25 +126,25 @@ export function createCortexClient(defaultBrand?: string) {
 
   return {
     async getColours(overrideBrand?: string): Promise<BrandColours> {
-      return callTool<BrandColours>("get-colours", {}, overrideBrand ?? brand);
+      return callTool<BrandColours>("brain_get-colours", {}, overrideBrand ?? brand);
     },
 
     async getBrandVoice(overrideBrand?: string): Promise<BrandVoice> {
-      return callTool<BrandVoice>("get-brand-voice", {}, overrideBrand ?? brand);
+      return callTool<BrandVoice>("brain_get-brand-voice", {}, overrideBrand ?? brand);
     },
 
     async getCompany(overrideBrand?: string): Promise<CompanyData> {
-      return callTool<CompanyData>("get-company", {}, overrideBrand ?? brand);
+      return callTool<CompanyData>("brain_get-company", {}, overrideBrand ?? brand);
     },
 
     async getPersonas(overrideBrand?: string, id?: string): Promise<Persona[]> {
       const args = id ? { id } : {};
-      return callTool<Persona[]>("get-personas", args, overrideBrand ?? brand);
+      return callTool<Persona[]>("brain_get-personas", args, overrideBrand ?? brand);
     },
 
     async getAudiences(overrideBrand?: string, id?: string): Promise<Audience[]> {
       const args = id ? { id } : {};
-      return callTool<Audience[]>("get-audiences", args, overrideBrand ?? brand);
+      return callTool<Audience[]>("brain_get-audiences", args, overrideBrand ?? brand);
     },
 
     async getProof(
@@ -133,11 +157,11 @@ export function createCortexClient(defaultBrand?: string) {
         ...(opts?.persona && { persona: opts.persona }),
         ...(opts?.limit && { limit: opts.limit }),
       };
-      return callTool<ProofData>("get-proof", args, overrideBrand ?? brand);
+      return callTool<ProofData>("brain_get-proof", args, overrideBrand ?? brand);
     },
 
     async listBrands(): Promise<BrandInfo[]> {
-      return callTool<BrandInfo[]>("list-brands", {}, brand);
+      return callTool<BrandInfo[]>("brain_list-brands", {}, brand);
     },
   };
 }

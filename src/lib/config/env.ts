@@ -20,11 +20,20 @@ const envSchema = z.object({
   DEFAULT_BRAND: z.string().default("apexure"),
   CACHE_TTL_SECONDS: z.coerce.number().positive().default(3600),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().positive().default(60),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
+  KV_REST_API_URL: z.string().url().optional(),
+  KV_REST_API_TOKEN: z.string().optional(),
+  POSTGRES_URL: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 let cachedEnv: Env | null = null;
+
+/** Reset cached env (for tests only). */
+export function resetEnvCache(): void {
+  cachedEnv = null;
+}
 
 export function getEnv(): Env {
   if (cachedEnv) return cachedEnv;

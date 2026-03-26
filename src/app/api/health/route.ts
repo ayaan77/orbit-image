@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/middleware/auth";
+import { authResultToResponse } from "@/lib/middleware/auth-helpers";
 import { createCachedCortexClient } from "@/lib/cortex/cached-client";
 
 interface HealthStatus {
@@ -10,7 +11,8 @@ interface HealthStatus {
 }
 
 export async function GET(request: Request): Promise<NextResponse<HealthStatus | { success: false; error: { code: string; message: string } }>> {
-  const authError = authenticateRequest(request);
+  const authResult = await authenticateRequest(request);
+  const authError = authResultToResponse(authResult);
   if (authError) return authError;
 
   let cortexReachable = false;

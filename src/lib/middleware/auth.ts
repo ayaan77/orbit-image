@@ -1,53 +1,53 @@
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { getEnv } from "@/lib/config/env";
-import type { ErrorResponse } from "@/types/api";
-import { NextResponse } from "next/server";
+import { hashApiKey, lookupApiKey } from "@/lib/auth/keys";
+import type { AuthResult } from "@/lib/auth/types";
 
 function safeCompare(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a, "utf8");
-  const bBuf = Buffer.from(b, "utf8");
-  if (aBuf.length !== bBuf.length) {
-    // Run comparison anyway to avoid length-based timing leak
-    timingSafeEqual(aBuf, aBuf);
-    return false;
-  }
-  return timingSafeEqual(aBuf, bBuf);
+  // Hash both sides to fixed-length digests — eliminates length-based timing leak
+  const aHash = createHash("sha256").update(a).digest();
+  const bHash = createHash("sha256").update(b).digest();
+  return timingSafeEqual(aHash, bHash);
 }
 
-export function authenticateRequest(
+/**
+ * Authenticate a request. Checks master key first (sync), then Redis.
+ * Returns AuthResult — callers decide how to handle errors.
+ */
+export async function authenticateRequest(
   request: Request
-): NextResponse<ErrorResponse> | null {
+): Promise<AuthResult> {
   const authHeader = request.headers.get("authorization");
 
   if (!authHeader) {
-    return NextResponse.json(
-      {
-        success: false as const,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Missing Authorization header",
-        },
-      },
-      { status: 401 }
-    );
+    return { type: "error", code: "UNAUTHORIZED", message: "Missing Authorization header" };
   }
 
   const token = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
     : authHeader;
 
-  if (!safeCompare(token, getEnv().API_SECRET_KEY)) {
-    return NextResponse.json(
-      {
-        success: false as const,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Invalid API key",
-        },
-      },
-      { status: 401 }
-    );
+  // Fast path: check master key (sync, no Redis)
+  if (safeCompare(token, getEnv().API_SECRET_KEY)) {
+    return { type: "master" };
   }
 
-  return null; // authenticated
+  // Slow path: look up client key in Redis
+  try {
+    const keyHash = hashApiKey(token);
+    const client = await lookupApiKey(keyHash);
+
+    if (!client) {
+      return { type: "error", code: "UNAUTHORIZED", message: "Invalid API key" };
+    }
+
+    if (!client.active) {
+      return { type: "error", code: "UNAUTHORIZED", message: "API key has been revoked" };
+    }
+
+    return { type: "client", client };
+  } catch {
+    // KV unavailable — fall back to master-key-only mode
+    return { type: "error", code: "UNAUTHORIZED", message: "Invalid API key" };
+  }
 }

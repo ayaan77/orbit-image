@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/middleware/auth";
+import { authResultToResponse } from "@/lib/middleware/auth-helpers";
 import { createCachedCortexClient } from "@/lib/cortex/cached-client";
 import type { ErrorResponse } from "@/types/api";
 
 export async function GET(
   request: Request
 ): Promise<NextResponse> {
-  const authError = authenticateRequest(request);
+  const authResult = await authenticateRequest(request);
+  const authError = authResultToResponse(authResult);
   if (authError) return authError;
 
   try {
