@@ -121,6 +121,7 @@ export function getRateLimitHeaders(
     "X-RateLimit-Limit": String(limit),
     "X-RateLimit-Remaining": String(remaining),
     "X-RateLimit-Reset": String(resetAt),
+    Vary: "Authorization",
   };
 }
 

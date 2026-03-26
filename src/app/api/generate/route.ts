@@ -22,6 +22,7 @@ import { getEnv } from "@/lib/config/env";
 import { logUsage } from "@/lib/usage/logger";
 import { estimateCost } from "@/lib/usage/cost";
 import { createJob, getJob, updateJob } from "@/lib/jobs/store";
+import type { Job } from "@/lib/jobs/types";
 import { deliverWebhook } from "@/lib/jobs/webhook";
 
 export const maxDuration = 60;
@@ -139,6 +140,21 @@ export async function POST(
 
   // ─── Async path ───
   if (body.async) {
+    // Reject upfront if webhook is requested but secret is not configured
+    if (body.webhook_url && !getEnv().WEBHOOK_SECRET) {
+      return NextResponse.json(
+        {
+          success: false as const,
+          error: {
+            code: "WEBHOOK_NOT_CONFIGURED",
+            message:
+              "Webhook delivery requires WEBHOOK_SECRET to be configured on the server.",
+          },
+        },
+        { status: 503, headers },
+      );
+    }
+
     try {
       const job = await createJob({
         clientId,
@@ -250,6 +266,17 @@ export async function POST(
   }
 }
 
+/** Deliver webhook for a job if configured. */
+async function tryDeliverWebhook(job: Job | null, jobId: string): Promise<void> {
+  if (!job?.webhookUrl) return;
+  const secret = getEnv().WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn(`[async-job] [${jobId}] webhookUrl configured but WEBHOOK_SECRET missing — skipping delivery`);
+    return;
+  }
+  await deliverWebhook(job, secret);
+}
+
 /**
  * Background processor for async jobs.
  * Runs via after() — executes after the response is sent.
@@ -280,17 +307,8 @@ async function processAsyncJob(
       result,
     });
 
-    // Deliver webhook if configured
-    if (updatedJob?.webhookUrl) {
-      const env = getEnv();
-      if (env.WEBHOOK_SECRET) {
-        await deliverWebhook(updatedJob, env.WEBHOOK_SECRET);
-      } else {
-        console.warn(`[async-job] [${jobId}] webhookUrl configured but WEBHOOK_SECRET missing — skipping delivery`);
-      }
-    }
+    await tryDeliverWebhook(updatedJob, jobId);
 
-    // Log usage
     await logUsage({
       clientId,
       clientName,
@@ -313,15 +331,7 @@ async function processAsyncJob(
         error instanceof Error ? error.message : "An unexpected error occurred",
     });
 
-    // Still try to deliver webhook for failure
     const failedJob = await getJob(jobId);
-    if (failedJob?.webhookUrl) {
-      const env = getEnv();
-      if (env.WEBHOOK_SECRET) {
-        await deliverWebhook(failedJob, env.WEBHOOK_SECRET);
-      } else {
-        console.warn(`[async-job] [${jobId}] webhookUrl configured but WEBHOOK_SECRET missing — skipping delivery`);
-      }
-    }
+    await tryDeliverWebhook(failedJob, jobId);
   }
 }
