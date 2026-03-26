@@ -42,7 +42,11 @@ export function ToastProvider({ children }: { readonly children: React.ReactNode
   const showToast = useCallback(
     (message: string, type: ToastType = "info", duration: number = 3000) => {
       const id = String(++idCounter.current);
-      setToasts((prev) => [...prev, { id, message, type, duration }]);
+      setToasts((prev) => {
+        const updated = [...prev, { id, message, type, duration }];
+        // Keep max 3 visible
+        return updated.length > 3 ? updated.slice(-3) : updated;
+      });
     },
     [],
   );
@@ -56,14 +60,14 @@ export function ToastProvider({ children }: { readonly children: React.ReactNode
       {children}
       <div className={styles.container} aria-live="polite" role="status">
         {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
+          <ToastItemView key={toast.id} toast={toast} onDismiss={dismiss} />
         ))}
       </div>
     </ToastContext.Provider>
   );
 }
 
-function ToastItem({
+function ToastItemView({
   toast,
   onDismiss,
 }: {
@@ -90,8 +94,12 @@ function ToastItem({
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
       >
-        \u00D7
+        {"\u00D7"}
       </button>
+      <div
+        className={styles.progress}
+        style={{ animationDuration: `${toast.duration}ms` }}
+      />
     </div>
   );
 }

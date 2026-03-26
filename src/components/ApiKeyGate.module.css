@@ -5,6 +5,9 @@
   min-height: calc(100vh - 64px);
   padding: var(--space-6);
   animation: fadeIn var(--duration-slow) var(--ease-out);
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(99, 102, 241, 0.04) 0%, transparent 50%);
 }
 
 .card {
@@ -14,9 +17,10 @@
   background-image: var(--gradient-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-8);
+  box-shadow: var(--shadow-card), 0 0 80px rgba(139, 92, 246, 0.04);
+  padding: var(--space-8) var(--space-8) var(--space-6);
   text-align: center;
+  animation: fadeInUp var(--duration-slow) var(--ease-out);
 }
 
 /* ─── Visual ─── */
@@ -29,8 +33,8 @@
 
 .orbitContainer {
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: 96px;
+  height: 96px;
 }
 
 .ring1,
@@ -179,6 +183,11 @@
 .submitBtn:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+.submitBtn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .submitBtn:disabled {

@@ -32,6 +32,7 @@
 /* ─── Result Panel ─── */
 .resultPanel {
   min-height: 400px;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
 }
 
 /* ─── Empty State ─── */
@@ -274,14 +275,43 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .container {
+    grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+}
+
 @media (max-width: 860px) {
   .container {
     grid-template-columns: 1fr;
     padding: var(--space-4);
     gap: var(--space-6);
+    max-width: 600px;
   }
 
   .formPanel {
     position: static;
+  }
+
+  .emptyState {
+    min-height: 360px;
+    padding: var(--space-8);
+  }
+
+  .loadingState {
+    min-height: 360px;
+    padding: var(--space-8);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--space-3);
+    gap: var(--space-4);
+  }
+
+  .card {
+    padding: var(--space-4);
   }
 }

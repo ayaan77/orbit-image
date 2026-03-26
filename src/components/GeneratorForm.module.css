@@ -1,7 +1,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 /* ─── Sections ─── */
@@ -9,6 +9,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .topicSection {
@@ -90,14 +97,16 @@
   background: var(--bg-card-hover);
   border-color: var(--border-default);
   color: var(--text-secondary);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .purposeCardActive {
   background: var(--accent-subtle);
   border-color: rgba(139, 92, 246, 0.3);
   color: var(--text-primary);
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(139, 92, 246, 0.1);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(139, 92, 246, 0.1),
+    0 0 16px rgba(139, 92, 246, 0.1);
 }
 
 .purposeCardActive:hover {
@@ -144,6 +153,11 @@
   background: var(--accent-subtle);
   border-color: rgba(139, 92, 246, 0.3);
   color: #c4b5fd;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.1);
+}
+
+.styleChip:hover {
+  transform: translateY(-1px);
 }
 
 /* ─── Row Group ─── */
