@@ -26,10 +26,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   // IP-based rate limit: 10 previews per hour
   const rateLimited = checkIpRateLimit(request, 10, 3_600_000, "studio:preview");
   if (rateLimited) {
-    return NextResponse.json(rateLimited.body, {
-      status: 429,
-      headers: cors,
-    });
+    return NextResponse.json(
+      { success: false, error: { code: "RATE_LIMITED", message: "Too many preview requests. Try again later." } },
+      { status: 429, headers: cors },
+    );
   }
 
   let rawBody: unknown;

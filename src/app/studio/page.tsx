@@ -133,8 +133,18 @@ export default function StudioPage() {
     setSignupLoading(true);
     setError(null);
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const companyName = formData.get("companyName") as string;
+    const email = (formData.get("email") as string)?.trim();
+    const companyName = (formData.get("companyName") as string)?.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
+      setSignupLoading(false);
+      return;
+    }
+    if (!companyName) {
+      setError("Company name is required.");
+      setSignupLoading(false);
+      return;
+    }
     try {
       const res = await fetch("/api/studio/signup", {
         method: "POST",
@@ -156,9 +166,9 @@ export default function StudioPage() {
 
   const handleCopy = useCallback(() => {
     if (!signupResult) return;
-    navigator.clipboard.writeText(signupResult.apiKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(signupResult.apiKey)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
+      .catch(() => { /* clipboard blocked */ });
   }, [signupResult]);
 
   const handleStartOver = useCallback(() => {

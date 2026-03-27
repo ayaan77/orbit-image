@@ -43,6 +43,8 @@ export function ImageGallery({
     navigator.clipboard.writeText(prompt).then(() => {
       setPromptCopied(true);
       setTimeout(() => setPromptCopied(false), 2000);
+    }).catch(() => {
+      // Clipboard API not available or blocked by browser policy
     });
   }, []);
 

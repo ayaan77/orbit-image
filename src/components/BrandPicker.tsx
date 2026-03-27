@@ -53,11 +53,32 @@ export function BrandPicker({ value, onChange }: BrandPickerProps) {
 
   if (error || brands.length === 0) {
     return (
-      <p className={styles.empty}>
-        {error
-          ? "Could not load brands — using default."
-          : "No brands found. Using the default brand."}
-      </p>
+      <div className={styles.empty}>
+        <p>
+          {error
+            ? "Could not load brands — using default."
+            : "No brands found. Using the default brand."}
+        </p>
+        {error && (
+          <button
+            type="button"
+            className={styles.retryBtn}
+            onClick={() => {
+              setError(false);
+              setLoading(true);
+              const key = getApiKey();
+              if (!key) { setLoading(false); return; }
+              fetch("/api/brands", { headers: { Authorization: `Bearer ${key}` } })
+                .then((r) => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+                .then((data) => { if (Array.isArray(data.brands)) setBrands(data.brands); })
+                .catch(() => setError(true))
+                .finally(() => setLoading(false));
+            }}
+          >
+            Retry
+          </button>
+        )}
+      </div>
     );
   }
 

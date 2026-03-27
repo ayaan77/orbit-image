@@ -47,14 +47,9 @@ async function keyFingerprint(key: string): Promise<string> {
 }
 
 /**
- * Check if the current API key is a master key by probing an admin endpoint.
+ * Check if the current API key is a master key by probing GET /api/admin/whoami.
  * Caches the result in localStorage keyed by a fingerprint of the API key,
  * so it only re-probes when the key actually changes.
- *
- * Performance note: The probe hits GET /api/admin/keys which lists all clients
- * from Redis. This is acceptable because it only fires when the key fingerprint
- * changes (i.e., user enters a new API key). If the client list grows large,
- * consider adding a lightweight HEAD /api/admin/keys or /api/auth/whoami endpoint.
  */
 export async function detectAdmin(): Promise<boolean> {
   const key = getApiKey();
@@ -71,14 +66,18 @@ export async function detectAdmin(): Promise<boolean> {
   }
 
   try {
-    const res = await fetch("/api/admin/keys", {
+    const res = await fetch("/api/admin/whoami", {
       headers: { Authorization: `Bearer ${key}` },
     });
     const isAdmin = res.ok;
+    if (!isAdmin) {
+      console.warn("[orbit] Admin probe returned", res.status);
+    }
     setIsAdmin(isAdmin);
     localStorage.setItem(ADMIN_KEY_HASH_KEY, fp);
     return isAdmin;
-  } catch {
+  } catch (err) {
+    console.warn("[orbit] Admin detection failed:", err);
     setIsAdmin(false);
     return false;
   }

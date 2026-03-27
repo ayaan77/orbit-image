@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { readonly children: React.ReactNode
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className={styles.container} aria-live="polite" role="status">
+      <div className={styles.container} role="status">
         {toasts.map((toast) => (
           <ToastItemView key={toast.id} toast={toast} onDismiss={dismiss} />
         ))}
@@ -86,7 +86,11 @@ function ToastItemView({
   };
 
   return (
-    <div className={`${styles.toast} ${styles[toast.type]}`}>
+    <div
+      className={`${styles.toast} ${styles[toast.type]}`}
+      aria-live={toast.type === "error" ? "assertive" : "polite"}
+      role={toast.type === "error" ? "alert" : "status"}
+    >
       <span className={styles.icon}>{iconMap[toast.type]}</span>
       <span className={styles.message}>{toast.message}</span>
       <button

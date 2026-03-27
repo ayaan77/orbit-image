@@ -145,6 +145,7 @@ function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void
   });
   const [config, setConfig] = useState<SetupConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     const key = getApiKey();
@@ -202,8 +203,10 @@ function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void
       }
 
       setStats({ totalImages, totalCost, activeClients, healthStatus, cortexOk, openaiOk });
-    } catch {
-      // leave defaults
+      setFetchError(null);
+    } catch (err) {
+      console.warn("[orbit] Dashboard stats fetch failed:", err);
+      setFetchError("Could not load dashboard data. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -219,6 +222,13 @@ function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void
       <p className={styles.pageDesc}>
         Monitor your Orbit Image instance at a glance.
       </p>
+
+      {fetchError && (
+        <div className={styles.errorBanner} role="alert">
+          <span>{fetchError}</span>
+          <button className={styles.retryBtn} onClick={fetchStats}>Retry</button>
+        </div>
+      )}
 
       {loading ? (
         <div className={styles.loadingText}>Loading stats...</div>

@@ -190,7 +190,9 @@ function ConnectWizard({ onClose, authHeaders, showToast }: ConnectWizardProps) 
   }, [name, rateLimit, authHeaders, showToast]);
 
   const handleCopyKey = useCallback(() => {
-    navigator.clipboard.writeText(apiKey).then(() => setKeyCopied(true));
+    navigator.clipboard.writeText(apiKey)
+      .then(() => setKeyCopied(true))
+      .catch(() => { /* clipboard blocked by browser policy */ });
   }, [apiKey]);
 
   const handleFinish = useCallback(async (skipWebhook = false) => {

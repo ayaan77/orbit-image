@@ -86,8 +86,33 @@
 }
 
 .empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: 0.6875rem;
   color: var(--text-muted);
   opacity: 0.7;
   font-style: italic;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.retryBtn {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-style: normal;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.retryBtn:hover {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
