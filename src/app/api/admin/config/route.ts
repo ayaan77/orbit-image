@@ -12,6 +12,10 @@ interface ConfigResponse {
   readonly imageCacheTtlSeconds: number;
   readonly redisConfigured: boolean;
   readonly postgresConfigured: boolean;
+  readonly blobConfigured: boolean;
+  readonly activeProvider: string;
+  readonly replicateConfigured: boolean;
+  readonly activeModel: string;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -30,6 +34,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       imageCacheTtlSeconds: env.IMAGE_CACHE_TTL_SECONDS,
       redisConfigured: Boolean(env.KV_REST_API_URL && env.KV_REST_API_TOKEN),
       postgresConfigured: Boolean(env.POSTGRES_URL),
+      blobConfigured: Boolean(env.BLOB_READ_WRITE_TOKEN),
+      activeProvider: env.DEFAULT_PROVIDER,
+      replicateConfigured: Boolean(env.REPLICATE_API_TOKEN),
+      activeModel: env.DEFAULT_PROVIDER === "replicate"
+        ? env.REPLICATE_MODEL
+        : "gpt-image-1",
     },
     { headers },
   );

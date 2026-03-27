@@ -7,14 +7,8 @@ const envSchema = z.object({
     .string()
     .url()
     .refine(
-      (url) => {
-        const parsed = new URL(url);
-        return (
-          parsed.protocol === "https:" &&
-          parsed.hostname.endsWith(".apexure.com")
-        );
-      },
-      { message: "CORTEX_BASE_URL must be HTTPS on *.apexure.com" }
+      (url) => new URL(url).protocol === "https:",
+      { message: "CORTEX_BASE_URL must be an HTTPS URL" }
     )
     .default("https://cortex.apexure.com/api/mcp"),
   DEFAULT_BRAND: z.string().default("apexure"),
@@ -28,6 +22,9 @@ const envSchema = z.object({
   MAX_CONCURRENT_GENERATES: z.coerce.number().int().positive().default(3),
   GENERATE_QUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   IMAGE_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
+  REPLICATE_API_TOKEN: z.string().optional(),
+  REPLICATE_MODEL: z.string().default("black-forest-labs/flux-1.1-pro"),
+  DEFAULT_PROVIDER: z.enum(["openai", "replicate", "mock"]).default("openai"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 

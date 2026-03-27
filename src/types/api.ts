@@ -47,6 +47,9 @@ export const GenerateRequestSchema = z.object({
   count: z.number().int().min(1).max(4).default(1),
   quality: z.enum(["standard", "hd"]).default("hd"),
 
+  // Output format
+  output_format: z.enum(["base64", "url"]).default("base64"),
+
   // Async delivery
   async: z.boolean().optional(),
   webhook_url: z
@@ -61,6 +64,7 @@ export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;
 
 export interface GeneratedImageResult {
   readonly base64: string;
+  readonly url?: string;
   readonly prompt: string;
   readonly mimeType: string;
   readonly dimensions: { readonly width: number; readonly height: number };
@@ -73,6 +77,7 @@ export interface GenerateResponse {
   readonly metadata: {
     readonly processingTimeMs: number;
     readonly cortexDataCached: boolean;
+    readonly cortexAvailable?: boolean;
     readonly resultCached?: boolean;
   };
 }

@@ -121,15 +121,15 @@ function buildNegativePrompt(): string {
 
 export function assemblePrompt(
   request: GenerateRequest,
-  context: BrandContext
+  context: BrandContext | null
 ): PromptBundle {
   const template = getTemplate(request.purpose);
-  const colorSection = buildColorPromptSection(context.colours);
-  const personality = deriveBrandPersonality(context);
+  const colorSection = context ? buildColorPromptSection(context.colours) : "";
+  const personality = context ? deriveBrandPersonality(context) : "Visual style: professional, polished, modern.";
   const styleModifier = buildStyleModifier(request.style);
-  const personaContext = buildPersonaContext(context, request);
-  const audienceContext = buildAudienceContext(context, request);
-  const proofContext = buildProofContext(context);
+  const personaContext = context ? buildPersonaContext(context, request) : "";
+  const audienceContext = context ? buildAudienceContext(context, request) : "";
+  const proofContext = context ? buildProofContext(context) : "";
 
   const focusSection = template.focusAreas
     .map((area) => `- ${area}`)

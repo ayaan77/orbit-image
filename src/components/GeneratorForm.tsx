@@ -45,6 +45,7 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
       purpose,
       count,
       quality,
+      output_format: "base64",
       ...(style ? { style: style as GenerateRequest["style"] } : {}),
       ...(brand ? { brand } : {}),
     };

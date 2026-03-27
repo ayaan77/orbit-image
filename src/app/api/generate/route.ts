@@ -15,6 +15,8 @@ import type {
 } from "@/types/api";
 import { createCachedCortexClient } from "@/lib/cortex/cached-client";
 import { CortexError } from "@/lib/cortex/client";
+import type { BrandContext } from "@/lib/cortex/types";
+import { uploadImageToBlob } from "@/lib/mcp/blob";
 import { ProviderError } from "@/lib/providers/types";
 import { assemblePrompt } from "@/lib/prompt/engine";
 import { getProvider } from "@/lib/providers/factory";
@@ -66,12 +68,27 @@ async function generateImages(
 
   return queue.enqueue(async () => {
     const cortex = createCachedCortexClient(brand);
-    const { context, cached } = await cortex.getBrandContext(brand, {
-      topic: body.topic,
-      persona: body.persona,
-      audience: body.audience,
-      industry: body.industry,
-    });
+
+    let context: BrandContext | null = null;
+    let cached = false;
+    let cortexAvailable = true;
+
+    try {
+      const result = await cortex.getBrandContext(brand, {
+        topic: body.topic,
+        persona: body.persona,
+        audience: body.audience,
+        industry: body.industry,
+      });
+      context = result.context;
+      cached = result.cached;
+    } catch (err) {
+      if (err instanceof CortexError) {
+        cortexAvailable = false;
+      } else {
+        throw err;
+      }
+    }
 
     const promptBundle = assemblePrompt(body, context);
     const provider = getProvider();
@@ -84,7 +101,7 @@ async function generateImages(
       dimensions: img.dimensions,
     }));
 
-    return { images, cached };
+    return { images, cached, cortexAvailable };
   });
 }
 
@@ -132,8 +149,25 @@ export async function POST(
     ...parsed,
     count: parsed.count ?? 1,
     quality: parsed.quality ?? "hd",
+    output_format: parsed.output_format ?? "base64",
   };
   const brand = body.brand ?? getEnv().DEFAULT_BRAND;
+
+  // Guard: blob URL output requires BLOB_READ_WRITE_TOKEN
+  if (body.output_format === "url" && !getEnv().BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      {
+        success: false as const,
+        error: {
+          code: "BLOB_NOT_CONFIGURED",
+          message:
+            "output_format 'url' requires BLOB_READ_WRITE_TOKEN to be configured on the server.",
+        },
+      },
+      { status: 503, headers: await commonHeaders(request, requestId, clientRateLimit) },
+    );
+  }
+
   const clientId =
     authResult.type === "client" ? authResult.client.clientId : "master";
   const clientName =
@@ -231,6 +265,21 @@ export async function POST(
     if (cacheHit) {
       const processingTimeMs = Date.now() - startTime;
 
+      // Blob upload for cached results when URL format requested
+      let responseImages = cacheHit.images;
+      if (body.output_format === "url") {
+        responseImages = await Promise.all(
+          cacheHit.images.map(async (img, i) => {
+            const { url } = await uploadImageToBlob(
+              img.base64,
+              img.mimeType,
+              `orbit/${brand}/${body.purpose}/${requestId}-${i}.png`,
+            );
+            return { ...img, url };
+          }),
+        );
+      }
+
       after(
         logUsage({
           clientId,
@@ -251,11 +300,12 @@ export async function POST(
       return NextResponse.json(
         {
           success: true as const,
-          images: cacheHit.images,
+          images: responseImages,
           brand,
           metadata: {
             processingTimeMs,
             cortexDataCached: true,
+            cortexAvailable: true,
             resultCached: true,
           },
         },
@@ -264,10 +314,25 @@ export async function POST(
     }
 
     // Cache miss — generate via queue
-    const { images, cached } = await generateImages(body, brand);
+    const { images, cached, cortexAvailable } = await generateImages(body, brand);
     const processingTimeMs = Date.now() - startTime;
 
-    // Store in cache (fire-and-forget)
+    // Blob upload when URL format requested
+    let responseImages = images;
+    if (body.output_format === "url") {
+      responseImages = await Promise.all(
+        images.map(async (img, i) => {
+          const { url } = await uploadImageToBlob(
+            img.base64,
+            img.mimeType,
+            `orbit/${brand}/${body.purpose}/${requestId}-${i}.png`,
+          );
+          return { ...img, url };
+        }),
+      );
+    }
+
+    // Store base64 in cache (not URLs — they may expire)
     after(
       setCachedResult(cacheKey, {
         images,
@@ -296,11 +361,12 @@ export async function POST(
     return NextResponse.json(
       {
         success: true as const,
-        images,
+        images: responseImages,
         brand,
         metadata: {
           processingTimeMs,
           cortexDataCached: cached,
+          cortexAvailable,
           resultCached: false,
         },
       },
@@ -414,7 +480,7 @@ async function processAsyncJob(
       images = generated.images;
       cached = generated.cached;
 
-      // Store in cache
+      // Store base64 in cache (not URLs)
       await setCachedResult(cacheKey, {
         images,
         brand,
@@ -422,10 +488,25 @@ async function processAsyncJob(
       });
     }
 
+    // Blob upload for async jobs when URL format requested
+    let jobImages = images;
+    if (body.output_format === "url" && getEnv().BLOB_READ_WRITE_TOKEN) {
+      jobImages = await Promise.all(
+        images.map(async (img, i) => {
+          const { url } = await uploadImageToBlob(
+            img.base64,
+            img.mimeType,
+            `orbit/${brand}/${body.purpose}/${jobId}-${i}.png`,
+          );
+          return { ...img, url };
+        }),
+      );
+    }
+
     const processingTimeMs = Date.now() - startTime;
 
     const result = {
-      images,
+      images: jobImages,
       brand,
       processingTimeMs,
       cortexDataCached: cached,

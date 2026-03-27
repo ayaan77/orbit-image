@@ -108,6 +108,10 @@ interface ServerConfig {
   readonly imageCacheTtlSeconds: number;
   readonly redisConfigured: boolean;
   readonly postgresConfigured: boolean;
+  readonly blobConfigured: boolean;
+  readonly activeProvider: string;
+  readonly replicateConfigured: boolean;
+  readonly activeModel: string;
 }
 
 interface EndpointInfo {
@@ -356,7 +360,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {activeTab === "services" && (
             <ServicesTab
               connection={connection}
+              serverConfig={serverConfig}
               onTestConnection={handleTestConnection}
+              onFetchConfig={fetchConfig}
             />
           )}
           {activeTab === "endpoints" && (
@@ -433,14 +439,19 @@ function ApiKeyTab({
 
 function ServicesTab({
   connection,
+  serverConfig,
   onTestConnection,
+  onFetchConfig,
 }: {
   readonly connection: ConnectionStatus;
+  readonly serverConfig: ServerConfig | null;
   readonly onTestConnection: (force?: boolean) => void;
+  readonly onFetchConfig: () => void;
 }) {
-  // Auto-test when tab opens
+  // Auto-test and fetch config when tab opens
   useEffect(() => {
     onTestConnection();
+    onFetchConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -556,6 +567,40 @@ function ServicesTab({
                 ? "Some services degraded"
                 : "Services unreachable"}
           </span>
+        </div>
+      )}
+
+      {serverConfig && (
+        <div className={styles.providerSection}>
+          <p className={styles.providerSectionTitle}>Image Provider</p>
+          <div className={styles.providerCard}>
+            <div className={styles.providerRow}>
+              <span className={styles.providerLabel}>Active provider</span>
+              <span className={styles.providerBadge}>
+                {serverConfig.activeProvider === "replicate" ? "Replicate" : "OpenAI"}
+              </span>
+            </div>
+            <div className={styles.providerRow}>
+              <span className={styles.providerLabel}>Model</span>
+              <span className={styles.providerModel}>{serverConfig.activeModel}</span>
+            </div>
+            <div className={styles.providerRow}>
+              <span className={styles.providerLabel}>Blob storage</span>
+              <span className={serverConfig.blobConfigured ? styles.providerOk : styles.providerMissing}>
+                {serverConfig.blobConfigured ? "Configured" : "Not configured"}
+              </span>
+            </div>
+            {serverConfig.activeProvider === "replicate" && !serverConfig.replicateConfigured && (
+              <p className={styles.providerWarning}>
+                REPLICATE_API_TOKEN is not set — Replicate provider will fail.
+              </p>
+            )}
+            {!serverConfig.blobConfigured && (
+              <p className={styles.providerWarning}>
+                Set BLOB_READ_WRITE_TOKEN to enable output_format: &quot;url&quot;.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -157,11 +157,10 @@ describe("POST /api/generate", () => {
     const response = await POST(request);
     const json = await response.json();
 
-    expect(response.status).toBe(502);
-    expect(json.success).toBe(false);
-    expect(json.error.code).toBe("CORTEX_ERROR");
-    // Should NOT leak internal error details
-    expect(json.error.message).not.toContain("500");
+    // Cortex errors now cause graceful degradation (generic prompt) rather than 502
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.metadata.cortexAvailable).toBe(false);
   });
 
   it("returns cortexDataCached true on second request", async () => {
