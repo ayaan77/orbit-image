@@ -1,12 +1,26 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { getApiKey } from "@/lib/client/storage";
-import { AppsPanel } from "@/components/AppsPanel";
-import { Playground } from "@/components/Playground";
-import { UsagePanel } from "@/components/UsagePanel";
-import { QuickStart } from "@/components/QuickStart";
 import styles from "./Dashboard.module.css";
+
+const AppsPanel = dynamic(() => import("@/components/AppsPanel").then(m => ({ default: m.AppsPanel })), {
+  loading: () => <TabSkeleton />,
+});
+const Playground = dynamic(() => import("@/components/Playground").then(m => ({ default: m.Playground })), {
+  loading: () => <TabSkeleton />,
+});
+const UsagePanel = dynamic(() => import("@/components/UsagePanel").then(m => ({ default: m.UsagePanel })), {
+  loading: () => <TabSkeleton />,
+});
+const QuickStart = dynamic(() => import("@/components/QuickStart").then(m => ({ default: m.QuickStart })), {
+  loading: () => <TabSkeleton />,
+});
+
+function TabSkeleton() {
+  return <div className={styles.tabSkeleton}><div className={styles.skeletonPulse} /></div>;
+}
 
 type TabId = "overview" | "apps" | "playground" | "usage" | "quickstart";
 

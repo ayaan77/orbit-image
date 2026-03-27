@@ -4,7 +4,7 @@ interface CacheEntry<T> {
 }
 
 const store = new Map<string, CacheEntry<unknown>>();
-const MAX_ENTRIES = 200;
+const MAX_ENTRIES = 1000;
 
 function evictExpired(): void {
   const now = Date.now();

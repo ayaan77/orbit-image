@@ -251,3 +251,25 @@
     font-size: var(--text-xs);
   }
 }
+
+/* ─── Tab Loading Skeleton ─── */
+.tabSkeleton {
+  padding: var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.skeletonPulse {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--surface-2, rgba(255 255 255 / 0.05));
+  animation: skeletonFade 1s ease-in-out infinite;
+}
+
+@keyframes skeletonFade {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}

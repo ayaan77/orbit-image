@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { getApiKey } from "@/lib/client/storage";
 import { useToast } from "@/components/Toast";
 import styles from "./UsagePanel.module.css";
@@ -153,35 +153,7 @@ export function UsagePanel() {
               </thead>
               <tbody>
                 {data.usage.map((row) => (
-                  <tr key={row.id}>
-                    <td className={styles.mono}>
-                      {new Date(row.created_at).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </td>
-                    <td>
-                      <span className={styles.clientCell}>{row.client_name}</span>
-                    </td>
-                    <td>{row.brand}</td>
-                    <td>{row.purpose}</td>
-                    <td>{row.image_count}</td>
-                    <td>
-                      <span className={`${styles.qualityBadge} ${row.quality === "hd" ? styles.qualityHd : styles.qualityStd}`}>
-                        {row.quality}
-                      </span>
-                    </td>
-                    <td className={styles.mono}>${Number(row.estimated_cost_usd).toFixed(3)}</td>
-                    <td className={styles.mono}>{(Number(row.processing_time_ms) / 1000).toFixed(1)}s</td>
-                    <td>{row.cached ? "Yes" : "No"}</td>
-                    <td>
-                      <span className={`${styles.endpointBadge} ${row.endpoint === "mcp" ? styles.endpointMcp : styles.endpointRest}`}>
-                        {row.endpoint.toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
+                  <UsageTableRow key={row.id} row={row} />
                 ))}
               </tbody>
             </table>
@@ -218,3 +190,37 @@ export function UsagePanel() {
     </div>
   );
 }
+
+const UsageTableRow = memo(function UsageTableRow({ row }: { readonly row: UsageRow }) {
+  return (
+    <tr>
+      <td className={styles.mono}>
+        {new Date(row.created_at).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </td>
+      <td>
+        <span className={styles.clientCell}>{row.client_name}</span>
+      </td>
+      <td>{row.brand}</td>
+      <td>{row.purpose}</td>
+      <td>{row.image_count}</td>
+      <td>
+        <span className={`${styles.qualityBadge} ${row.quality === "hd" ? styles.qualityHd : styles.qualityStd}`}>
+          {row.quality}
+        </span>
+      </td>
+      <td className={styles.mono}>${Number(row.estimated_cost_usd).toFixed(3)}</td>
+      <td className={styles.mono}>{(Number(row.processing_time_ms) / 1000).toFixed(1)}s</td>
+      <td>{row.cached ? "Yes" : "No"}</td>
+      <td>
+        <span className={`${styles.endpointBadge} ${row.endpoint === "mcp" ? styles.endpointMcp : styles.endpointRest}`}>
+          {row.endpoint.toUpperCase()}
+        </span>
+      </td>
+    </tr>
+  );
+});

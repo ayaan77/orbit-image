@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { getApiKey } from "@/lib/client/storage";
 import { useToast } from "@/components/Toast";
 import styles from "./AppsPanel.module.css";
@@ -296,7 +296,7 @@ export function AppsPanel() {
   );
 }
 
-function ClientCard({
+const ClientCard = memo(function ClientCard({
   client,
   onRevoke,
 }: {
@@ -374,4 +374,4 @@ function ClientCard({
       </div>
     </div>
   );
-}
+});

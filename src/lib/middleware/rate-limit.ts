@@ -15,7 +15,9 @@ interface WindowEntry {
 }
 
 const MAX_ENTRIES = 10_000;
+const CLEANUP_INTERVAL_MS = 60_000;
 const windows = new Map<string, WindowEntry>();
+let lastCleanup = Date.now();
 
 function hashKey(raw: string): string {
   return createHash("sha256").update(raw).digest("hex").slice(0, 32);
@@ -91,7 +93,11 @@ function inMemoryCheckRateLimit(
 ): { limited: boolean; count: number; resetAt: number } {
   const now = Date.now();
 
-  cleanupOldEntries();
+  // Only run full cleanup periodically or when map is oversized
+  if (now - lastCleanup > CLEANUP_INTERVAL_MS || windows.size > MAX_ENTRIES) {
+    cleanupOldEntries();
+    lastCleanup = now;
+  }
 
   const entry = windows.get(clientKey) ?? { timestamps: [] };
   const recentTimestamps = entry.timestamps.filter(

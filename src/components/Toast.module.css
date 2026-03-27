@@ -16,7 +16,7 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--bg-card);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);

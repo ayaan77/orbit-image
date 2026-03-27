@@ -82,15 +82,33 @@ const TABS: readonly TabDef[] = [
   },
 ] as const;
 
+interface ServiceResult {
+  readonly connected: boolean;
+  readonly latencyMs?: number;
+  readonly error?: string;
+}
+
 type ConnectionStatus =
   | { readonly state: "idle" }
   | { readonly state: "testing" }
   | {
       readonly state: "done";
-      readonly status: "healthy" | "degraded" | "unhealthy";
-      readonly cortex: boolean;
-      readonly openai: boolean;
+      readonly cortex: ServiceResult;
+      readonly openai: ServiceResult;
+      readonly redis: ServiceResult;
+      readonly postgres: ServiceResult;
     };
+
+interface ServerConfig {
+  readonly defaultBrand: string;
+  readonly rateLimitPerMinute: number;
+  readonly cacheTtlSeconds: number;
+  readonly maxConcurrentGenerates: number;
+  readonly queueTimeoutMs: number;
+  readonly imageCacheTtlSeconds: number;
+  readonly redisConfigured: boolean;
+  readonly postgresConfigured: boolean;
+}
 
 interface EndpointInfo {
   readonly method: string;
@@ -142,6 +160,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     state: "idle",
   });
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null);
   const { showToast } = useToast();
   const overlayRef = useRef<HTMLDivElement>(null);
   const firstFocusRef = useRef<HTMLInputElement>(null);
@@ -183,33 +202,59 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     showToast("API key saved", "success");
   }, [keyValue, showToast]);
 
-  const handleTestConnection = useCallback(async () => {
+  const lastTestRef = useRef<number>(0);
+
+  const handleTestConnection = useCallback(async (force = false) => {
     const key = getApiKey();
     if (!key) {
       showToast("Save an API key first", "error");
       return;
     }
+    // Cache result for 30s unless forced
+    if (!force && connection.state === "done" && Date.now() - lastTestRef.current < 30_000) {
+      return;
+    }
     setConnection({ state: "testing" });
     try {
-      const res = await fetch("/api/health", {
+      const res = await fetch("/api/admin/services", {
         headers: { Authorization: `Bearer ${key}` },
       });
-      const data = await res.json();
-      setConnection({
-        state: "done",
-        status: data.status ?? "unhealthy",
-        cortex: data.cortex?.reachable ?? false,
-        openai: data.openai?.configured ?? false,
-      });
+      if (!res.ok) {
+        // Fall back to health endpoint for non-admin users
+        const healthRes = await fetch("/api/health", {
+          headers: { Authorization: `Bearer ${key}` },
+        });
+        const data = await healthRes.json();
+        const fail: ServiceResult = { connected: false, error: "Not admin" };
+        setConnection({
+          state: "done",
+          cortex: { connected: data.cortex?.reachable ?? false },
+          openai: { connected: data.openai?.configured ?? false },
+          redis: fail,
+          postgres: fail,
+        });
+      } else {
+        const data = await res.json();
+        setConnection({
+          state: "done",
+          cortex: data.cortex ?? { connected: false },
+          openai: data.openai ?? { connected: false },
+          redis: data.redis ?? { connected: false },
+          postgres: data.postgres ?? { connected: false },
+        });
+      }
+      lastTestRef.current = Date.now();
     } catch {
+      const fail: ServiceResult = { connected: false, error: "Network error" };
       setConnection({
         state: "done",
-        status: "unhealthy",
-        cortex: false,
-        openai: false,
+        cortex: fail,
+        openai: fail,
+        redis: fail,
+        postgres: fail,
       });
     }
-  }, [showToast]);
+  }, [showToast, connection.state]);
 
   const handleClear = useCallback(() => {
     clearApiKey();
@@ -233,6 +278,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     },
     [showToast],
   );
+
+  const fetchConfig = useCallback(async () => {
+    const key = getApiKey();
+    if (!key || serverConfig) return;
+    try {
+      const res = await fetch("/api/admin/config", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (res.ok) {
+        setServerConfig(await res.json());
+      }
+    } catch {
+      // Config is best-effort for admin users
+    }
+  }, [serverConfig]);
 
   if (!isOpen) return null;
 
@@ -303,6 +363,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <EndpointsTab
               copiedIndex={copiedIndex}
               onCopy={handleCopyCurl}
+              config={serverConfig}
+              onFetchConfig={fetchConfig}
             />
           )}
           {activeTab === "danger" && (
@@ -374,51 +436,59 @@ function ServicesTab({
   onTestConnection,
 }: {
   readonly connection: ConnectionStatus;
-  readonly onTestConnection: () => void;
+  readonly onTestConnection: (force?: boolean) => void;
 }) {
+  // Auto-test when tab opens
+  useEffect(() => {
+    onTestConnection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function getServiceStatus(result: ServiceResult | undefined): "connected" | "disconnected" | "unknown" {
+    if (!result) return "unknown";
+    return result.connected ? "connected" : "disconnected";
+  }
+
   const services = [
     {
       name: "Cortex MCP",
       description: "Brand data provider",
-      status:
-        connection.state === "done"
-          ? connection.cortex
-            ? "connected"
-            : "disconnected"
-          : "unknown",
+      key: "cortex" as const,
     },
     {
       name: "OpenAI",
       description: "Image generation",
-      status:
-        connection.state === "done"
-          ? connection.openai
-            ? "connected"
-            : "disconnected"
-          : "unknown",
+      key: "openai" as const,
     },
     {
       name: "Upstash Redis",
-      description: "API key storage",
-      status: "env-configured",
+      description: "API key storage & rate limiting",
+      key: "redis" as const,
     },
     {
       name: "Neon Postgres",
       description: "Usage tracking",
-      status: "env-configured",
+      key: "postgres" as const,
     },
-  ] as const;
+  ];
+
+  const results = connection.state === "done" ? connection : null;
+  const allConnected = results
+    ? results.cortex.connected && results.openai.connected && results.redis.connected && results.postgres.connected
+    : false;
+  const someConnected = results
+    ? results.cortex.connected || results.openai.connected || results.redis.connected || results.postgres.connected
+    : false;
 
   return (
     <div className={styles.section}>
       <div className={styles.servicesHeader}>
         <p className={styles.hint}>
-          Service connections are configured via environment variables on the
-          server. Use &quot;Test Connection&quot; to verify reachability.
+          Live connectivity status for all backend services.
         </p>
         <button
           className={styles.testBtn}
-          onClick={onTestConnection}
+          onClick={() => onTestConnection(true)}
           disabled={connection.state === "testing"}
         >
           {connection.state === "testing" ? (
@@ -437,40 +507,52 @@ function ServicesTab({
                   strokeLinejoin="round"
                 />
               </svg>
-              Test Connection
+              Retest
             </>
           )}
         </button>
       </div>
 
       <div className={styles.serviceGrid}>
-        {services.map((svc) => (
-          <div key={svc.name} className={styles.serviceCard}>
-            <div className={styles.serviceInfo}>
-              <span className={styles.serviceName}>{svc.name}</span>
-              <span className={styles.serviceDesc}>{svc.description}</span>
+        {services.map((svc) => {
+          const result = results?.[svc.key];
+          const status = connection.state === "testing" ? "unknown" : getServiceStatus(result);
+          return (
+            <div key={svc.name} className={styles.serviceCard}>
+              <div className={styles.serviceInfo}>
+                <span className={styles.serviceName}>{svc.name}</span>
+                <span className={styles.serviceDesc}>{svc.description}</span>
+                {result?.error && !result.connected && (
+                  <span className={styles.serviceError}>{result.error}</span>
+                )}
+              </div>
+              <div className={styles.serviceBadgeGroup}>
+                <ServiceBadge status={status} />
+                {result?.latencyMs !== undefined && result.connected && (
+                  <span className={styles.latency}>{result.latencyMs}ms</span>
+                )}
+              </div>
             </div>
-            <ServiceBadge status={svc.status} />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {connection.state === "done" && (
         <div className={styles.overallStatus}>
           <span
             className={`${styles.statusDot} ${
-              connection.status === "healthy"
+              allConnected
                 ? styles.dotGreen
-                : connection.status === "degraded"
+                : someConnected
                   ? styles.dotYellow
                   : styles.dotRed
             }`}
           />
           <span className={styles.statusText}>
             Overall:{" "}
-            {connection.status === "healthy"
+            {allConnected
               ? "All systems operational"
-              : connection.status === "degraded"
+              : someConnected
                 ? "Some services degraded"
                 : "Services unreachable"}
           </span>
@@ -483,20 +565,18 @@ function ServicesTab({
 function ServiceBadge({
   status,
 }: {
-  readonly status: "connected" | "disconnected" | "unknown" | "env-configured";
+  readonly status: "connected" | "disconnected" | "unknown";
 }) {
   const classMap = {
     connected: styles.badgeGreen,
     disconnected: styles.badgeRed,
     unknown: styles.badgeMuted,
-    "env-configured": styles.badgeBlue,
   } as const;
 
   const labelMap = {
     connected: "Connected",
     disconnected: "Disconnected",
-    unknown: "Not tested",
-    "env-configured": "Env configured",
+    unknown: "Testing...",
   } as const;
 
   return (
@@ -509,12 +589,56 @@ function ServiceBadge({
 function EndpointsTab({
   copiedIndex,
   onCopy,
+  config,
+  onFetchConfig,
 }: {
   readonly copiedIndex: number | null;
   readonly onCopy: (index: number) => void;
+  readonly config: ServerConfig | null;
+  readonly onFetchConfig: () => void;
 }) {
+  // Auto-fetch config when tab opens
+  useEffect(() => {
+    onFetchConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className={styles.section}>
+      {/* Server Configuration */}
+      {config && (
+        <div className={styles.configSection}>
+          <h4 className={styles.configTitle}>Server Configuration</h4>
+          <div className={styles.configGrid}>
+            <div className={styles.configItem}>
+              <span className={styles.configLabel}>Default Brand</span>
+              <span className={styles.configValue}>{config.defaultBrand}</span>
+            </div>
+            <div className={styles.configItem}>
+              <span className={styles.configLabel}>Rate Limit</span>
+              <span className={styles.configValue}>{config.rateLimitPerMinute} req/min</span>
+            </div>
+            <div className={styles.configItem}>
+              <span className={styles.configLabel}>Cache TTL</span>
+              <span className={styles.configValue}>{config.cacheTtlSeconds}s</span>
+            </div>
+            <div className={styles.configItem}>
+              <span className={styles.configLabel}>Max Concurrent</span>
+              <span className={styles.configValue}>{config.maxConcurrentGenerates}</span>
+            </div>
+            <div className={styles.configItem}>
+              <span className={styles.configLabel}>Queue Timeout</span>
+              <span className={styles.configValue}>{(config.queueTimeoutMs / 1000).toFixed(0)}s</span>
+            </div>
+            <div className={styles.configItem}>
+              <span className={styles.configLabel}>Image Cache TTL</span>
+              <span className={styles.configValue}>{(config.imageCacheTtlSeconds / 3600).toFixed(0)}h</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API Endpoints */}
       <p className={styles.hint}>
         API endpoints for integrating with Orbit Image. Click &quot;Copy&quot; to get a
         ready-to-use curl command with your API key.
