@@ -15,6 +15,7 @@ export interface JobResult {
   readonly brand: string;
   readonly processingTimeMs: number;
   readonly cortexDataCached: boolean;
+  readonly resultCached?: boolean;
 }
 
 export interface Job {

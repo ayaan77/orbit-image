@@ -43,15 +43,15 @@ export function resetReplicateClient(): void {
 export const replicateProvider: ImageProvider = {
   name: "replicate",
 
-  async generate(bundle: PromptBundle): Promise<readonly GeneratedImage[]> {
+  async generate(bundle: PromptBundle, model?: string): Promise<readonly GeneratedImage[]> {
     const client = getClient();
     const env = getEnv();
-    const model = env.REPLICATE_MODEL as `${string}/${string}`;
+    const resolvedModel = (model ?? env.REPLICATE_MODEL) as `${string}/${string}`;
     const aspectRatio = resolveAspectRatio(bundle.dimensions);
     const outputQuality = bundle.quality === "hd" ? 95 : 80;
 
     const promises = Array.from({ length: bundle.count }, () =>
-      client.run(model, {
+      client.run(resolvedModel, {
         input: {
           prompt: bundle.positive,
           aspect_ratio: aspectRatio,

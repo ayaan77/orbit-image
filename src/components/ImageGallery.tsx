@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import styles from "./ImageGallery.module.css";
 
 interface GeneratedImage {
@@ -14,15 +14,27 @@ interface ImageGalleryProps {
   readonly images: readonly GeneratedImage[];
   readonly brand: string;
   readonly processingTimeMs: number;
+  readonly cortexDataCached: boolean;
+  readonly resultCached: boolean;
 }
 
 export function ImageGallery({
   images,
   brand,
   processingTimeMs,
+  cortexDataCached,
+  resultCached,
 }: ImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
+
+  const handleCopyPrompt = useCallback((prompt: string) => {
+    navigator.clipboard.writeText(prompt).then(() => {
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    });
+  }, []);
 
   const selected = images[selectedIndex];
   if (!selected) return null;
@@ -48,13 +60,18 @@ export function ImageGallery({
           <span className={styles.metaStat}>
             {(processingTimeMs / 1000).toFixed(1)}s
           </span>
+          {cortexDataCached && (
+            <span className={styles.cacheBadge}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+              cached
+            </span>
+          )}
+          {resultCached && (
+            <span className={styles.resultCacheBadge}>result cached</span>
+          )}
         </div>
-        <button
-          className={styles.promptToggle}
-          onClick={() => setShowPrompt(!showPrompt)}
-        >
-          {showPrompt ? "Hide" : "Show"} Prompt
-        </button>
       </div>
 
       {/* Main image */}
@@ -89,13 +106,52 @@ export function ImageGallery({
         </div>
       </div>
 
-      {/* Prompt display */}
-      {showPrompt && (
-        <div className={styles.promptBox}>
+      {/* Prompt display — always visible */}
+      <div className={styles.promptBox}>
+        <div className={styles.promptHeader}>
           <p className={styles.promptLabel}>Generated Prompt</p>
-          <p className={styles.promptText}>{selected.prompt}</p>
+          <div className={styles.promptActions}>
+            {selected.prompt.length > 120 && (
+              <button
+                className={styles.promptExpandBtn}
+                onClick={() => setPromptExpanded(!promptExpanded)}
+              >
+                {promptExpanded ? "Collapse" : "Expand"}
+              </button>
+            )}
+            <button
+              className={styles.promptCopyBtn}
+              onClick={() => handleCopyPrompt(selected.prompt)}
+              aria-label="Copy prompt"
+            >
+              {promptCopied ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M20 6L9 17l-5-5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              )}
+              {promptCopied ? "Copied" : "Copy"}
+            </button>
+          </div>
         </div>
-      )}
+        <p className={`${styles.promptText} ${promptExpanded ? styles.promptTextExpanded : ""}`}>
+          {selected.prompt}
+        </p>
+      </div>
 
       {/* Thumbnail strip */}
       {images.length > 1 && (

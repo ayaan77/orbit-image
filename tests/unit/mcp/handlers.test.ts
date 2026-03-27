@@ -148,7 +148,7 @@ describe("handleGenerateImage", () => {
       getBrandContext: () => {
         throw new CortexError("Cortex down");
       },
-    } as ReturnType<typeof createCachedCortexClient>);
+    } as unknown as ReturnType<typeof createCachedCortexClient>);
 
     // The mock above won't work via spyOn on dynamic import.
     // Instead, test via the actual MSW mock that returns error.

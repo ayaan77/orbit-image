@@ -90,7 +90,8 @@
   gap: var(--space-2);
 }
 
-.settingsBtn {
+.iconBtn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,14 +103,35 @@
     background var(--duration-fast) var(--ease-out);
 }
 
-.settingsBtn:hover {
+.iconBtn:hover {
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.06);
+}
+
+.settingsBtn:hover {
   transform: rotate(30deg);
 }
 
 .settingsBtn:active {
   transform: rotate(60deg);
+}
+
+.historyBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
 }
 
 .statusDot {

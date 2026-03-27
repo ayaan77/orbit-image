@@ -3,6 +3,8 @@
 import { useState, useCallback } from "react";
 import { getApiKey } from "@/lib/client/storage";
 import { useToast } from "@/components/Toast";
+import { MODEL_CATALOG, MODEL_IDS, DEFAULT_MODEL, type ModelId } from "@/lib/providers/models";
+import { ImageGallery } from "./ImageGallery";
 import styles from "./Playground.module.css";
 
 const PURPOSES = [
@@ -16,9 +18,37 @@ const PURPOSES = [
 
 const QUALITIES = ["standard", "hd"] as const;
 
+const IMAGE_STYLES = [
+  "photographic",
+  "illustration",
+  "3d-render",
+  "flat-design",
+  "abstract",
+  "minimalist",
+] as const;
+
+interface ImageResult {
+  readonly base64: string;
+  readonly url?: string;
+  readonly prompt: string;
+  readonly mimeType: string;
+  readonly dimensions: { readonly width: number; readonly height: number };
+}
+
+interface ParsedImageResponse {
+  readonly images: readonly ImageResult[];
+  readonly brand: string;
+  readonly metadata: {
+    readonly processingTimeMs: number;
+    readonly cortexDataCached: boolean;
+    readonly resultCached?: boolean;
+  };
+}
+
 interface PlaygroundState {
   readonly topic: string;
   readonly purpose: string;
+  readonly model: ModelId;
   readonly brand: string;
   readonly quality: string;
   readonly count: number;
@@ -26,11 +56,13 @@ interface PlaygroundState {
   readonly persona: string;
   readonly async: boolean;
   readonly webhookUrl: string;
+  readonly outputFormat: "base64" | "url";
 }
 
 const DEFAULT_STATE: PlaygroundState = {
   topic: "",
   purpose: "blog-hero",
+  model: DEFAULT_MODEL,
   brand: "apexure",
   quality: "hd",
   count: 1,
@@ -38,6 +70,7 @@ const DEFAULT_STATE: PlaygroundState = {
   persona: "",
   async: false,
   webhookUrl: "",
+  outputFormat: "base64",
 };
 
 export function Playground() {
@@ -46,6 +79,18 @@ export function Playground() {
   const [response, setResponse] = useState<string | null>(null);
   const [responseStatus, setResponseStatus] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
+  const [responseImages, setResponseImages] = useState<ParsedImageResponse | null>(null);
+  const [asyncJob, setAsyncJob] = useState<{ jobId: string; statusUrl: string } | null>(null);
+  const [viewJson, setViewJson] = useState(false);
+  const [jobPolling, setJobPolling] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    positive: string;
+    negative: string;
+    brandContextUsed: boolean;
+    brand: string;
+  } | null>(null);
   const { showToast } = useToast();
 
   const updateField = useCallback(
@@ -70,15 +115,20 @@ export function Playground() {
     setResponse(null);
     setResponseStatus(null);
     setElapsed(null);
+    setResponseImages(null);
+    setAsyncJob(null);
+    setViewJson(false);
 
     const body: Record<string, unknown> = {
       topic: form.topic.trim(),
       purpose: form.purpose,
+      model: form.model,
       brand: form.brand || undefined,
       quality: form.quality,
       count: form.count,
+      output_format: form.outputFormat,
     };
-    if (form.style.trim()) body.style = form.style.trim();
+    if (form.style) body.style = form.style;
     if (form.persona.trim()) body.persona = form.persona.trim();
     if (form.async) {
       body.async = true;
@@ -99,16 +149,24 @@ export function Playground() {
       setResponseStatus(res.status);
       setElapsed(Date.now() - start);
 
-      // Truncate base64 in display for readability
-      const display = JSON.parse(JSON.stringify(data));
-      if (display.images) {
-        for (const img of display.images) {
-          if (img.base64 && img.base64.length > 80) {
-            img.base64 = img.base64.slice(0, 80) + "... (truncated)";
-          }
+      if (res.ok && data.success && Array.isArray(data.images)) {
+        setResponseImages({
+          images: data.images as ImageResult[],
+          brand: data.brand,
+          metadata: data.metadata,
+        });
+        // Build truncated JSON for "View JSON" toggle
+        const display = JSON.parse(JSON.stringify(data));
+        for (const img of display.images ?? []) {
+          if (img.base64?.length > 80) img.base64 = img.base64.slice(0, 80) + "... (truncated)";
         }
+        setResponse(JSON.stringify(display, null, 2));
+      } else if (res.ok && data.success && data.async) {
+        setAsyncJob({ jobId: data.jobId, statusUrl: data.statusUrl });
+        setResponse(JSON.stringify(data, null, 2));
+      } else {
+        setResponse(JSON.stringify(data, null, 2));
       }
-      setResponse(JSON.stringify(display, null, 2));
     } catch (err) {
       setElapsed(Date.now() - start);
       setResponseStatus(0);
@@ -124,6 +182,100 @@ export function Playground() {
     }
   }, [form, showToast]);
 
+  const handlePollStatus = useCallback(async () => {
+    if (!asyncJob) return;
+    const key = getApiKey();
+    if (!key) return;
+
+    setJobPolling(true);
+    let attempts = 0;
+    const maxAttempts = 15;
+
+    const poll = async (): Promise<void> => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/jobs/${asyncJob.jobId}`, {
+          headers: { Authorization: `Bearer ${key}` },
+        });
+        const data = await res.json();
+
+        if (data.status === "completed" && data.result?.images) {
+          setResponseImages({
+            images: data.result.images as ImageResult[],
+            brand: data.result.brand,
+            metadata: {
+              processingTimeMs: data.result.processingTimeMs,
+              cortexDataCached: data.result.cortexDataCached,
+              resultCached: data.result.resultCached,
+            },
+          });
+          setAsyncJob(null);
+          setJobPolling(false);
+        } else if (data.status === "failed") {
+          setResponse(JSON.stringify(data, null, 2));
+          setAsyncJob(null);
+          setJobPolling(false);
+        } else if (attempts < maxAttempts) {
+          setTimeout(() => void poll(), 2000);
+        } else {
+          showToast("Job timed out — check status manually", "error");
+          setJobPolling(false);
+        }
+      } catch {
+        if (attempts < maxAttempts) {
+          setTimeout(() => void poll(), 2000);
+        } else {
+          showToast("Polling failed", "error");
+          setJobPolling(false);
+        }
+      }
+    };
+
+    await poll();
+  }, [asyncJob, showToast]);
+
+  const handlePreview = useCallback(async () => {
+    const key = getApiKey();
+    if (!key) { showToast("Configure your API key first", "error"); return; }
+    if (!form.topic.trim()) { showToast("Topic is required", "error"); return; }
+
+    setPreviewLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        topic: form.topic.trim(),
+        purpose: form.purpose,
+        model: form.model,
+        brand: form.brand || undefined,
+        quality: form.quality,
+        count: form.count,
+      };
+      if (form.style) body.style = form.style;
+      if (form.persona.trim()) body.persona = form.persona.trim();
+
+      const res = await fetch("/api/admin/preview-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPreviewData({
+          positive: data.prompt.positive,
+          negative: data.prompt.negative,
+          brandContextUsed: data.brandContextUsed,
+          brand: data.brand,
+        });
+        setPreviewOpen(true);
+      } else {
+        showToast(data.error?.message ?? "Preview failed", "error");
+      }
+    } catch {
+      showToast("Preview failed", "error");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [form, showToast]);
+
   const handleCopyResponse = useCallback(() => {
     if (response) {
       navigator.clipboard.writeText(response).then(() => {
@@ -131,6 +283,8 @@ export function Playground() {
       });
     }
   }, [response, showToast]);
+
+  const selectedModel = MODEL_CATALOG[form.model];
 
   return (
     <div className={styles.container}>
@@ -150,6 +304,7 @@ export function Playground() {
             />
           </div>
 
+          {/* Purpose + Model */}
           <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Purpose</label>
@@ -166,6 +321,37 @@ export function Playground() {
               </select>
             </div>
             <div className={styles.fieldGroup}>
+              <label className={styles.label}>Model</label>
+              <select
+                className={styles.select}
+                value={form.model}
+                onChange={(e) => updateField("model", e.target.value as ModelId)}
+              >
+                {MODEL_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {MODEL_CATALOG[id].displayName}
+                  </option>
+                ))}
+              </select>
+              <span
+                className={`${styles.modelBadge} ${
+                  selectedModel.provider === "openai"
+                    ? styles.modelBadgeOpenAI
+                    : selectedModel.provider === "replicate"
+                    ? styles.modelBadgeReplicate
+                    : styles.modelBadgeXAI
+                }`}
+              >
+                {selectedModel.badge}
+                {selectedModel.tier === "fast" && " · Fast"}
+                {selectedModel.tier === "premium" && " · Premium"}
+              </span>
+            </div>
+          </div>
+
+          {/* Quality + Brand */}
+          <div className={styles.row}>
+            <div className={styles.fieldGroup}>
               <label className={styles.label}>Quality</label>
               <select
                 className={styles.select}
@@ -179,9 +365,6 @@ export function Playground() {
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Brand</label>
               <input
@@ -191,6 +374,10 @@ export function Playground() {
                 onChange={(e) => updateField("brand", e.target.value)}
               />
             </div>
+          </div>
+
+          {/* Count + Style */}
+          <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Count</label>
               <input
@@ -204,18 +391,25 @@ export function Playground() {
                 }
               />
             </div>
-          </div>
-
-          <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Style</label>
-              <input
-                className={styles.input}
-                placeholder="e.g. minimalist, isometric"
+              <select
+                className={styles.select}
                 value={form.style}
                 onChange={(e) => updateField("style", e.target.value)}
-              />
+              >
+                <option value="">default</option>
+                {IMAGE_STYLES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          {/* Persona + Output Format */}
+          <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Persona</label>
               <input
@@ -224,6 +418,19 @@ export function Playground() {
                 value={form.persona}
                 onChange={(e) => updateField("persona", e.target.value)}
               />
+            </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Output Format</label>
+              <select
+                className={styles.select}
+                value={form.outputFormat}
+                onChange={(e) =>
+                  updateField("outputFormat", e.target.value as "base64" | "url")
+                }
+              >
+                <option value="base64">base64</option>
+                <option value="url">url (Blob)</option>
+              </select>
             </div>
           </div>
 
@@ -249,31 +456,68 @@ export function Playground() {
             )}
           </div>
 
-          <button
-            className={styles.sendBtn}
-            onClick={handleSend}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className={styles.spinner} />
-                Sending...
-              </>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                Send Request
-              </>
-            )}
-          </button>
+          <div className={styles.actionRow}>
+            <button
+              className={styles.sendBtn}
+              onClick={handleSend}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className={styles.spinner} />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Send Request
+                </>
+              )}
+            </button>
+            <button
+              className={`${styles.previewBtn} ${previewOpen ? styles.previewBtnActive : ""}`}
+              onClick={previewOpen ? () => setPreviewOpen(false) : handlePreview}
+              disabled={previewLoading}
+            >
+              {previewLoading ? "Loading…" : previewOpen ? "Hide Prompt" : "Preview Prompt"}
+            </button>
+          </div>
+
+          {/* Prompt Preview Panel */}
+          {previewOpen && previewData && (
+            <div className={styles.previewPanel}>
+              <div className={styles.previewHeader}>
+                <span className={styles.previewTitle}>Assembled Prompt</span>
+                <span
+                  className={`${styles.previewBadge} ${
+                    previewData.brandContextUsed
+                      ? styles.previewBadgeOk
+                      : styles.previewBadgeWarn
+                  }`}
+                >
+                  {previewData.brandContextUsed
+                    ? `Brand: ${previewData.brand}`
+                    : "No brand context (Cortex unavailable)"}
+                </span>
+              </div>
+              <div className={styles.previewSection}>
+                <div className={styles.previewLabel}>Positive prompt</div>
+                <pre className={styles.previewText}>{previewData.positive}</pre>
+              </div>
+              <div className={styles.previewSection}>
+                <div className={styles.previewLabel}>Negative prompt</div>
+                <pre className={styles.previewText}>{previewData.negative}</pre>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Response Panel */}
@@ -294,6 +538,14 @@ export function Playground() {
                 {elapsed !== null && (
                   <span className={styles.elapsed}>{elapsed}ms</span>
                 )}
+                {responseImages && (
+                  <button
+                    className={`${styles.copyResponseBtn} ${viewJson ? styles.viewJsonActive : ""}`}
+                    onClick={() => setViewJson((v) => !v)}
+                  >
+                    {viewJson ? "Images" : "JSON"}
+                  </button>
+                )}
                 <button
                   className={styles.copyResponseBtn}
                   onClick={handleCopyResponse}
@@ -304,7 +556,49 @@ export function Playground() {
             )}
           </div>
 
-          {response ? (
+          {responseImages && !viewJson ? (
+            <ImageGallery
+              images={responseImages.images}
+              brand={responseImages.brand}
+              processingTimeMs={responseImages.metadata.processingTimeMs}
+              cortexDataCached={responseImages.metadata.cortexDataCached}
+              resultCached={responseImages.metadata.resultCached ?? false}
+            />
+          ) : asyncJob ? (
+            <div className={styles.asyncJobPanel}>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                className={styles.asyncJobIcon}
+              >
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="M12 6v6l4 2"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <p className={styles.asyncJobTitle}>Job Queued</p>
+              <p className={styles.asyncJobId}>{asyncJob.jobId}</p>
+              <button
+                className={styles.pollBtn}
+                onClick={() => void handlePollStatus()}
+                disabled={jobPolling}
+              >
+                {jobPolling ? (
+                  <>
+                    <span className={styles.spinner} />
+                    Polling...
+                  </>
+                ) : (
+                  "Check Status"
+                )}
+              </button>
+            </div>
+          ) : response ? (
             <pre className={styles.responseCode}>{response}</pre>
           ) : (
             <div className={styles.responseEmpty}>

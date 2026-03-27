@@ -16,19 +16,21 @@ vi.mock("@/lib/storage/kv", () => ({
   resetKv: vi.fn(),
 }));
 
-// Mock OpenAI provider
+// Mock image providers
+const mockCacheGenerate = vi.fn().mockResolvedValue([
+  {
+    data: Buffer.from("fake-png-data"),
+    mimeType: "image/png",
+    prompt: "test prompt output",
+    dimensions: { width: 1024, height: 1024 },
+  },
+]);
+
+const mockCacheProvider = { name: "openai-mock", generate: mockCacheGenerate };
+
 vi.mock("@/lib/providers/factory", () => ({
-  getProvider: () => ({
-    name: "openai-mock",
-    generate: vi.fn().mockResolvedValue([
-      {
-        data: Buffer.from("fake-png-data"),
-        mimeType: "image/png",
-        prompt: "test prompt output",
-        dimensions: { width: 1024, height: 1024 },
-      },
-    ]),
-  }),
+  getProvider: () => mockCacheProvider,
+  resolveModel: () => ({ provider: mockCacheProvider, internalModel: "gpt-image-1" }),
 }));
 
 const { POST } = await import("@/app/api/generate/route");

@@ -3,6 +3,32 @@ import { createLogger } from "@/lib/logging/logger";
 import type { UsageEntry } from "./types";
 
 /**
+ * Get total spend for a client in the current calendar month.
+ * Returns 0 if Postgres is not configured or query fails (never blocks generation).
+ */
+export async function getMonthlySpend(clientId: string): Promise<number> {
+  try {
+    const sql = getDb();
+    if (!sql) return 0;
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const rows = await sql`
+      SELECT COALESCE(SUM(estimated_cost_usd), 0) AS total
+      FROM usage_logs
+      WHERE client_id = ${clientId}
+        AND created_at >= ${monthStart.toISOString()}
+    `;
+
+    return Number(rows[0]?.total ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Log a usage entry to Postgres.
  * Never throws — usage logging must never break generation.
  */

@@ -29,6 +29,7 @@ describe("assemblePrompt", () => {
         purpose: "blog-hero",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       baseContext
     );
@@ -47,6 +48,7 @@ describe("assemblePrompt", () => {
         purpose: "social-og",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       baseContext
     );
@@ -61,6 +63,7 @@ describe("assemblePrompt", () => {
         purpose: "ad-creative",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       baseContext
     );
@@ -76,6 +79,7 @@ describe("assemblePrompt", () => {
         purpose: "case-study",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       contextWithProof
     );
@@ -91,6 +95,7 @@ describe("assemblePrompt", () => {
         style: "illustration",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       baseContext
     );
@@ -106,6 +111,7 @@ describe("assemblePrompt", () => {
         dimensions: { width: 512, height: 512 },
         count: 1,
         quality: "standard",
+        output_format: "base64",
       },
       baseContext
     );
@@ -116,13 +122,13 @@ describe("assemblePrompt", () => {
 
   it("uses default dimensions per purpose", () => {
     const iconBundle = assemblePrompt(
-      { topic: "CRO", purpose: "icon", count: 1, quality: "hd" },
+      { topic: "CRO", purpose: "icon", count: 1, quality: "hd", output_format: "base64" },
       baseContext
     );
     expect(iconBundle.dimensions).toEqual({ width: 1024, height: 1024 });
 
     const infraBundle = assemblePrompt(
-      { topic: "CRO", purpose: "infographic", count: 1, quality: "hd" },
+      { topic: "CRO", purpose: "infographic", count: 1, quality: "hd", output_format: "base64" },
       baseContext
     );
     expect(infraBundle.dimensions).toEqual({ width: 1024, height: 1536 });
@@ -130,7 +136,7 @@ describe("assemblePrompt", () => {
 
   it("generates a non-empty negative prompt", () => {
     const bundle = assemblePrompt(
-      { topic: "Test", purpose: "blog-hero", count: 1, quality: "hd" },
+      { topic: "Test", purpose: "blog-hero", count: 1, quality: "hd", output_format: "base64" },
       baseContext
     );
 
@@ -140,7 +146,7 @@ describe("assemblePrompt", () => {
 
   it("respects count parameter", () => {
     const bundle = assemblePrompt(
-      { topic: "Test", purpose: "blog-hero", count: 3, quality: "hd" },
+      { topic: "Test", purpose: "blog-hero", count: 3, quality: "hd", output_format: "base64" },
       baseContext
     );
     expect(bundle.count).toBe(3);
@@ -158,6 +164,7 @@ describe("assemblePrompt", () => {
         persona: "Marketing Director",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       contextWithPersonas,
     );
@@ -179,6 +186,7 @@ describe("assemblePrompt", () => {
         audience: "Enterprise B2B",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       contextWithAudiences,
     );
@@ -198,6 +206,7 @@ describe("assemblePrompt", () => {
         persona: "nonexistent",
         count: 1,
         quality: "hd",
+        output_format: "base64",
       },
       contextWithPersonas,
     );
@@ -212,7 +221,7 @@ describe("assemblePrompt", () => {
       audiences: mockAudiences,
     };
     const bundle = assemblePrompt(
-      { topic: "Test", purpose: "blog-hero", count: 1, quality: "hd" },
+      { topic: "Test", purpose: "blog-hero", count: 1, quality: "hd", output_format: "base64" },
       contextWithAll,
     );
 

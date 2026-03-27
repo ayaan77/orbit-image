@@ -356,6 +356,19 @@
   font-family: var(--font-mono, monospace);
 }
 
+/* ─── Optional Services Note ─── */
+
+.optionalServicesNote {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  line-height: 1.5;
+}
+
 /* ─── Overall Status ─── */
 
 .overallStatus {

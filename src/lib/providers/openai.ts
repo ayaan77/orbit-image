@@ -8,20 +8,33 @@ type OpenAIImageSize =
   | "1024x1024"
   | "1536x1024"
   | "1024x1536"
+  | "1024x1792"
+  | "1792x1024"
   | "auto";
 
-function resolveSize(dimensions: {
-  width: number;
-  height: number;
-}): OpenAIImageSize {
+// gpt-image-1 supports: 1024x1024, 1536x1024, 1024x1536
+// dall-e-3 supports:    1024x1024, 1024x1792, 1792x1024
+function resolveSize(
+  dimensions: { width: number; height: number },
+  model: string,
+): OpenAIImageSize {
   const { width, height } = dimensions;
+  const ratio = width / height;
 
+  if (model === "dall-e-3") {
+    if (width === 1024 && height === 1024) return "1024x1024";
+    if (width === 1792 && height === 1024) return "1792x1024";
+    if (width === 1024 && height === 1792) return "1024x1792";
+    // Fallback to nearest
+    if (ratio > 1.2) return "1792x1024";
+    if (ratio < 0.8) return "1024x1792";
+    return "1024x1024";
+  }
+
+  // gpt-image-1
   if (width === 1024 && height === 1024) return "1024x1024";
   if (width === 1536 && height === 1024) return "1536x1024";
   if (width === 1024 && height === 1536) return "1024x1536";
-
-  // Fall back to closest supported size
-  const ratio = width / height;
   if (ratio > 1.2) return "1536x1024";
   if (ratio < 0.8) return "1024x1536";
   return "1024x1024";
@@ -48,27 +61,32 @@ function getClient(): OpenAI {
 export const openaiProvider: ImageProvider = {
   name: "openai",
 
-  async generate(bundle: PromptBundle): Promise<readonly GeneratedImage[]> {
+  async generate(bundle: PromptBundle, model = "gpt-image-1"): Promise<readonly GeneratedImage[]> {
     const client = getClient();
-    const size = resolveSize(bundle.dimensions);
+    const size = resolveSize(bundle.dimensions, model);
     const actualDimensions = parseDimensions(size);
 
     const results: GeneratedImage[] = [];
 
-    // gpt-image-1 generates one image per call
+    type OpenAIQuality = "auto" | "standard" | "hd" | "high" | "low" | "medium";
+    const quality: OpenAIQuality = model === "dall-e-3"
+      ? (bundle.quality === "hd" ? "hd" : "standard")
+      : (bundle.quality === "hd" ? "high" : "low");
+
     const promises = Array.from({ length: bundle.count }, () =>
       client.images.generate({
-        model: "gpt-image-1",
+        model,
         prompt: bundle.positive,
         n: 1,
         size,
-        quality: bundle.quality === "hd" ? "high" : "low",
-      })
+        quality,
+        response_format: "b64_json",
+      } as Parameters<OpenAI["images"]["generate"]>[0])
     );
 
-    let responses;
+    let responses: Array<{ data?: Array<{ b64_json?: string | null }> }>;
     try {
-      responses = await Promise.all(promises);
+      responses = (await Promise.all(promises)) as Array<{ data?: Array<{ b64_json?: string | null }> }>;
     } catch (error) {
       throw new ProviderError(
         `OpenAI image generation failed: ${error instanceof Error ? error.message : "Unknown error"}`

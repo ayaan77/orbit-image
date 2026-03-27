@@ -22,6 +22,9 @@ const mockRequest: GenerateRequest = {
   topic: "test topic",
   purpose: "blog-hero",
   brand: "apexure",
+  count: 1,
+  quality: "hd",
+  output_format: "base64",
 };
 
 describe("createJob", () => {

@@ -63,26 +63,24 @@ describe("corsHeaders", () => {
   });
 
   describe("localhost in development", () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-
     beforeEach(() => {
-      process.env.NODE_ENV = originalNodeEnv;
+      vi.unstubAllEnvs();
     });
 
     it("allows localhost in development", () => {
-      process.env.NODE_ENV = "development";
+      vi.stubEnv("NODE_ENV", "development");
       const headers = corsHeaders(makeRequest("http://localhost:3000"));
       expect(headers["Access-Control-Allow-Origin"]).toBe("http://localhost:3000");
     });
 
     it("allows 127.0.0.1 in development", () => {
-      process.env.NODE_ENV = "development";
+      vi.stubEnv("NODE_ENV", "development");
       const headers = corsHeaders(makeRequest("http://127.0.0.1:3000"));
       expect(headers["Access-Control-Allow-Origin"]).toBe("http://127.0.0.1:3000");
     });
 
     it("blocks localhost in production", () => {
-      process.env.NODE_ENV = "production";
+      vi.stubEnv("NODE_ENV", "production");
       const headers = corsHeaders(makeRequest("http://localhost:3000"));
       expect(headers).toEqual({});
     });

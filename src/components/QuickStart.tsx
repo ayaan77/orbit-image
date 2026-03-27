@@ -3,12 +3,13 @@
 import { useState, useCallback } from "react";
 import { getApiKey } from "@/lib/client/storage";
 import { useToast } from "@/components/Toast";
+import { CodeBlock } from "@/components/CodeBlock";
+import { getSyncSnippet, getAsyncSnippet, getVerifySnippet, getMcpSnippet } from "@/lib/client/snippets";
+import type { SnippetLang } from "@/lib/client/snippets";
 import styles from "./QuickStart.module.css";
 
-type Language = "curl" | "javascript" | "python";
-
 interface SnippetDef {
-  readonly id: Language;
+  readonly id: SnippetLang;
   readonly label: string;
 }
 
@@ -18,115 +19,18 @@ const LANGUAGES: readonly SnippetDef[] = [
   { id: "python", label: "Python" },
 ] as const;
 
-function getSnippet(lang: Language, baseUrl: string, apiKey: string): string {
-  const key = apiKey || "YOUR_API_KEY";
-
-  if (lang === "curl") {
-    return `curl -X POST ${baseUrl}/api/generate \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${key}" \\
-  -d '{
-    "topic": "A modern SaaS dashboard",
-    "purpose": "blog-hero",
-    "brand": "apexure",
-    "quality": "hd",
-    "count": 1
-  }'`;
-  }
-
-  if (lang === "javascript") {
-    return `const response = await fetch("${baseUrl}/api/generate", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer ${key}",
-  },
-  body: JSON.stringify({
-    topic: "A modern SaaS dashboard",
-    purpose: "blog-hero",
-    brand: "apexure",
-    quality: "hd",
-    count: 1,
-  }),
-});
-
-const data = await response.json();
-
-if (data.success) {
-  // data.images[0].base64 — base64-encoded image
-  // data.images[0].mimeType — "image/png"
-  console.log(\`Generated \${data.images.length} image(s)\`);
-}`;
-  }
-
-  // python
-  return `import requests
-
-response = requests.post(
-    "${baseUrl}/api/generate",
-    headers={
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${key}",
-    },
-    json={
-        "topic": "A modern SaaS dashboard",
-        "purpose": "blog-hero",
-        "brand": "apexure",
-        "quality": "hd",
-        "count": 1,
-    },
-)
-
-data = response.json()
-
-if data["success"]:
-    # data["images"][0]["base64"] — base64-encoded image
-    # data["images"][0]["mimeType"] — "image/png"
-    print(f"Generated {len(data['images'])} image(s)")`;
-}
-
-function getAsyncSnippet(baseUrl: string, apiKey: string): string {
-  const key = apiKey || "YOUR_API_KEY";
-  return `# Async generation with webhook callback
-curl -X POST ${baseUrl}/api/generate \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${key}" \\
-  -d '{
-    "topic": "Product launch hero image",
-    "purpose": "blog-hero",
-    "async": true,
-    "webhook_url": "https://yourapp.com/webhooks/orbit"
-  }'
-
-# Response: { "jobId": "job_abc123", "statusUrl": "..." }
-
-# Poll for status:
-curl ${baseUrl}/api/jobs/JOB_ID \\
-  -H "Authorization: Bearer ${key}"`;
-}
-
 export function QuickStart() {
-  const [activeLang, setActiveLang] = useState<Language>("curl");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeLang, setActiveLang] = useState<SnippetLang>("curl");
   const { showToast } = useToast();
 
   const baseUrl =
     typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
   const apiKey = getApiKey();
 
-  const handleCopy = useCallback(
-    (code: string, id: string) => {
-      navigator.clipboard.writeText(code).then(() => {
-        setCopiedId(id);
-        showToast("Copied to clipboard", "success");
-        setTimeout(() => setCopiedId(null), 2000);
-      });
-    },
-    [showToast],
-  );
-
-  const syncSnippet = getSnippet(activeLang, baseUrl, apiKey);
-  const asyncSnippet = getAsyncSnippet(baseUrl, apiKey);
+  const opts = { baseUrl, apiKey };
+  const syncSnippet = getSyncSnippet(activeLang, opts);
+  const asyncSnippet = getAsyncSnippet(opts);
+  const mcpSnippet = getMcpSnippet(opts);
 
   return (
     <div className={styles.container}>
@@ -148,15 +52,7 @@ export function QuickStart() {
           ))}
         </div>
 
-        <div className={styles.codeBlock}>
-          <button
-            className={styles.copyCodeBtn}
-            onClick={() => handleCopy(syncSnippet, "sync")}
-          >
-            {copiedId === "sync" ? "Copied" : "Copy"}
-          </button>
-          <pre className={styles.code}>{syncSnippet}</pre>
-        </div>
+        <CodeBlock code={syncSnippet} id="quickstart-sync" />
       </div>
 
       <div className={styles.section}>
@@ -166,33 +62,25 @@ export function QuickStart() {
           for background processing.
         </p>
 
-        <div className={styles.codeBlock}>
-          <button
-            className={styles.copyCodeBtn}
-            onClick={() => handleCopy(asyncSnippet, "async")}
-          >
-            {copiedId === "async" ? "Copied" : "Copy"}
-          </button>
-          <pre className={styles.code}>{asyncSnippet}</pre>
-        </div>
+        <CodeBlock code={asyncSnippet} id="quickstart-async" />
       </div>
 
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Webhook Payload</h3>
         <p className={styles.sectionDesc}>
-          Webhook payloads are signed with HMAC-SHA256. Verify the{" "}
-          <code>X-Orbit-Signature</code> header.
+          Webhook payloads are signed with HMAC-SHA256. Always verify the{" "}
+          <code>X-Orbit-Signature</code> header before trusting the payload.
         </p>
-        <div className={styles.codeBlock}>
-          <pre className={styles.code}>
-{`{
+        <CodeBlock
+          id="webhook-payload"
+          code={`{
   "event": "generation.completed",
   "jobId": "job_abc123",
   "timestamp": "2026-03-26T10:00:00.000Z",
   "data": {
     "images": [
       {
-        "base64": "iVBORw0KGgo...",
+        "url": "https://blob.vercel-storage.com/...",
         "prompt": "...",
         "mimeType": "image/png",
         "dimensions": { "width": 1024, "height": 1024 }
@@ -203,8 +91,38 @@ export function QuickStart() {
     "cortexDataCached": false
   }
 }`}
-          </pre>
+        />
+      </div>
+
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Verify Webhook Signatures</h3>
+        <p className={styles.sectionDesc}>
+          Use your <code>WEBHOOK_SECRET</code> to verify every incoming webhook.
+          Reject requests that fail verification.
+        </p>
+
+        <div className={styles.langTabs}>
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang.id}
+              className={`${styles.langTab} ${activeLang === lang.id ? styles.langTabActive : ""}`}
+              onClick={() => setActiveLang(lang.id)}
+            >
+              {lang.label}
+            </button>
+          ))}
         </div>
+
+        <CodeBlock code={getVerifySnippet(activeLang)} id="verify-sig" />
+      </div>
+
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>MCP / AI Assistants</h3>
+        <p className={styles.sectionDesc}>
+          Connect Orbit Image directly to Claude, Cursor, or any MCP-compatible AI. The assistant
+          calls <code>generate_image</code> automatically when you ask for images — no code needed.
+        </p>
+        <CodeBlock code={mcpSnippet} id="mcp-config" />
       </div>
     </div>
   );

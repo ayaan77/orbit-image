@@ -103,20 +103,107 @@ export async function revokeApiKey(clientId: string): Promise<boolean> {
 }
 
 /**
- * List all registered clients (without raw keys).
+ * Merge a nullable optional field: use the new value if provided (null/empty removes it),
+ * otherwise keep the existing value, otherwise omit.
  */
-export async function listClients(): Promise<ClientInfo[]> {
+function mergeOptional<T>(
+  incoming: T | null | undefined,
+  existing: T | undefined,
+  isEmpty: (v: T) => boolean = () => false,
+): { [k: string]: T } | Record<string, never> {
+  if (incoming !== undefined) {
+    return incoming !== null && !isEmpty(incoming) ? { value: incoming } : {};
+  }
+  return existing !== undefined ? { value: existing } : {};
+}
+
+/**
+ * Update mutable fields on an existing client.
+ * Pass `defaultWebhookUrl: ""` or `null` to remove it.
+ * Pass `active: true` to restore a revoked key.
+ */
+export async function updateClientInfo(
+  clientId: string,
+  updates: {
+    readonly rateLimit?: number;
+    readonly scopes?: readonly string[];
+    readonly defaultWebhookUrl?: string | null;
+    readonly active?: boolean;
+    readonly monthlyBudgetUsd?: number | null;
+  },
+): Promise<ClientInfo | null> {
   const kv = getKv();
-  if (!kv) return [];
+  if (!kv) return null;
 
-  // Get all clientId → hash mappings
+  const hash = await kv.hget<string>(REDIS_CLIENTS_SET, clientId);
+  if (!hash) return null;
+
+  const client = await kv.get<ClientInfo>(redisKey(hash));
+  if (!client) return null;
+
+  const rateLimitField = mergeOptional(updates.rateLimit, client.rateLimit);
+  const scopesField = mergeOptional(updates.scopes, client.scopes);
+  const webhookField = mergeOptional(updates.defaultWebhookUrl, client.defaultWebhookUrl, (v) => v === "");
+  const budgetField = mergeOptional(updates.monthlyBudgetUsd, client.monthlyBudgetUsd, (v) => v <= 0);
+
+  const updated: ClientInfo = {
+    clientId: client.clientId,
+    clientName: client.clientName,
+    createdAt: client.createdAt,
+    active: updates.active !== undefined ? updates.active : client.active,
+    ...(rateLimitField.value !== undefined && { rateLimit: rateLimitField.value }),
+    ...(scopesField.value !== undefined && { scopes: scopesField.value }),
+    ...(webhookField.value !== undefined && { defaultWebhookUrl: webhookField.value }),
+    ...(budgetField.value !== undefined && { monthlyBudgetUsd: budgetField.value }),
+  };
+
+  await kv.set(redisKey(hash), updated);
+  return updated;
+}
+
+/**
+ * Permanently delete a client — removes both the key hash entry
+ * and the clientId→hash mapping from Redis.
+ */
+export async function deleteClient(clientId: string): Promise<boolean> {
+  const kv = getKv();
+  if (!kv) return false;
+
+  const hash = await kv.hget<string>(REDIS_CLIENTS_SET, clientId);
+  if (!hash) return false;
+
+  await Promise.all([
+    kv.del(redisKey(hash)),
+    kv.hdel(REDIS_CLIENTS_SET, clientId),
+  ]);
+  return true;
+}
+
+/**
+ * List registered clients (without raw keys).
+ * @param limit  Max clients to return (default 100, max 500).
+ * @param offset Number of clients to skip for pagination.
+ */
+export async function listClients(
+  limit = 100,
+  offset = 0,
+): Promise<{ clients: ClientInfo[]; total: number }> {
+  const kv = getKv();
+  if (!kv) return { clients: [], total: 0 };
+
   const mapping = await kv.hgetall<Record<string, string>>(REDIS_CLIENTS_SET);
-  if (!mapping) return [];
+  if (!mapping) return { clients: [], total: 0 };
 
-  const hashes = Object.values(mapping);
+  const allHashes = Object.values(mapping);
+  const total = allHashes.length;
+  const pageHashes = allHashes.slice(offset, offset + Math.min(limit, 500));
+
   const results = await Promise.all(
-    hashes.map((hash) => kv.get<ClientInfo>(redisKey(hash))),
+    pageHashes.map((hash) => kv.get<ClientInfo>(redisKey(hash))),
   );
 
-  return results.filter((c): c is ClientInfo => c !== null);
+  return {
+    clients: results.filter((c): c is ClientInfo => c !== null),
+    total,
+  };
 }

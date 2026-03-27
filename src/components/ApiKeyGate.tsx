@@ -40,8 +40,11 @@ export function ApiKeyGate({ onKeySet }: ApiKeyGateProps) {
           Welcome to <span className={styles.accent}>Orbit Image</span>
         </h1>
         <p className={styles.description}>
-          Enter your API key to start generating brand-aware images. You can get
-          your key from your administrator or deployment config.
+          Enter your access key to get started. This is a password-like code —
+          the person who set up Orbit Image (your admin or IT contact) will give
+          it to you. If you deployed it yourself, it's your{" "}
+          <code style={{ fontFamily: "monospace", fontSize: "0.85em", opacity: 0.8 }}>API_SECRET_KEY</code>{" "}
+          environment variable.
         </p>
 
         <form className={styles.form} onSubmit={handleSubmit}>

@@ -121,11 +121,26 @@ export function UsagePanel() {
       {/* Error State */}
       {error && (
         <div className={styles.error}>
-          <p>{error}</p>
-          {error.includes("POSTGRES_URL") && (
-            <p className={styles.errorHint}>
-              Usage tracking requires a Postgres database. Configure POSTGRES_URL to enable.
-            </p>
+          {(error.includes("NOT_CONFIGURED") || error.includes("POSTGRES_URL") || error.includes("not configured")) ? (
+            <div className={styles.emptySetup}>
+              <div className={styles.emptySetupIcon}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M16 11h.01M12 11h.01M8 11h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <h4 className={styles.emptySetupTitle}>Postgres required for usage tracking</h4>
+              <p className={styles.emptySetupDesc}>
+                Usage logs are stored in Postgres. Add a database to unlock detailed analytics, cost tracking, and per-client breakdowns.
+              </p>
+              <ol className={styles.emptySetupSteps}>
+                <li>Go to <strong>Vercel Dashboard → Storage → Create Database → Postgres</strong></li>
+                <li>Connect it to your project — Vercel auto-sets <code>POSTGRES_URL</code></li>
+                <li>Redeploy (or run <code>npm run dev</code> after pulling env vars)</li>
+              </ol>
+            </div>
+          ) : (
+            <p>{error}</p>
           )}
         </div>
       )}

@@ -88,10 +88,68 @@
   font-size: var(--text-sm);
 }
 
+.error:has(.emptySetup) {
+  background: rgba(139, 92, 246, 0.04);
+  border-color: rgba(139, 92, 246, 0.12);
+  color: var(--text-primary);
+}
+
 .errorHint {
   color: var(--text-muted);
   font-size: var(--text-xs);
   margin-top: var(--space-2);
+}
+
+.emptySetup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.emptySetupIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptySetupTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.emptySetupDesc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.emptySetupSteps {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  line-height: 1.6;
+}
+
+.emptySetupSteps code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: rgba(139, 92, 246, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 /* ─── Loading / Empty ─── */

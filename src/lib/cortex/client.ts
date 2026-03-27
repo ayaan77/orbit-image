@@ -44,6 +44,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 function buildUrl(brand: string): string {
   const { CORTEX_BASE_URL } = getEnv();
+  if (!CORTEX_BASE_URL) throw new CortexError("CORTEX_BASE_URL is not configured");
   return `${CORTEX_BASE_URL}?brand=${encodeURIComponent(brand)}`;
 }
 

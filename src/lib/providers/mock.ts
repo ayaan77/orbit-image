@@ -14,7 +14,7 @@ const MOCK_PNG_BASE64 =
 export const mockProvider: ImageProvider = {
   name: "mock",
 
-  async generate(bundle: PromptBundle): Promise<readonly GeneratedImage[]> {
+  async generate(bundle: PromptBundle, _model?: string): Promise<readonly GeneratedImage[]> {
     // Simulate a small delay like a real API
     await new Promise((resolve) => setTimeout(resolve, 200));
 

@@ -1,0 +1,40 @@
+.wrapper {
+  position: relative;
+  background: #0d0d0d;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pre {
+  margin: 0;
+  padding: 16px;
+  padding-right: 72px;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #e2e2e2;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.copyBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 10px;
+  background: #1e1e1e;
+  border: 1px solid #2e2e2e;
+  border-radius: 5px;
+  color: #aaa;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 1;
+}
+
+.copyBtn:hover {
+  background: #2a2a2a;
+  color: #fff;
+}

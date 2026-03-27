@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import type { GenerateRequest } from "@/types/api";
+import { BrandPicker } from "@/components/BrandPicker";
+import { BrandPreview } from "@/components/BrandPreview";
 import styles from "./GeneratorForm.module.css";
 
 const PURPOSES = [
-  { value: "blog-hero", label: "Blog Hero", icon: "article" },
-  { value: "social-og", label: "Social / OG", icon: "share" },
-  { value: "ad-creative", label: "Ad Creative", icon: "campaign" },
-  { value: "case-study", label: "Case Study", icon: "analytics" },
-  { value: "icon", label: "Icon", icon: "apps" },
-  { value: "infographic", label: "Infographic", icon: "bar_chart" },
+  { value: "blog-hero", label: "Blog Hero", icon: "article", description: "1536×1024 · editorial" },
+  { value: "social-og", label: "Social / OG", icon: "share", description: "1536×1024 · feed-optimized" },
+  { value: "ad-creative", label: "Ad Creative", icon: "campaign", description: "1024×1024 · conversion" },
+  { value: "case-study", label: "Case Study", icon: "analytics", description: "1536×1024 · data-viz" },
+  { value: "icon", label: "Icon", icon: "apps", description: "1024×1024 · symbolic" },
+  { value: "infographic", label: "Infographic", icon: "bar_chart", description: "1024×1536 · tall" },
 ] as const;
 
 const STYLES = [
@@ -20,6 +22,17 @@ const STYLES = [
   { value: "flat-design", label: "Flat Design" },
   { value: "abstract", label: "Abstract" },
   { value: "minimalist", label: "Minimalist" },
+] as const;
+
+const INDUSTRY_PRESETS = [
+  "SaaS", "Healthcare", "Fintech", "E-commerce", "Professional Services",
+] as const;
+
+const DIMENSION_PRESETS = [
+  { label: "1:1 (1024)", width: 1024, height: 1024 },
+  { label: "16:9 (1536×864)", width: 1536, height: 864 },
+  { label: "OG (1200×630)", width: 1200, height: 630 },
+  { label: "Portrait (1024×1536)", width: 1024, height: 1536 },
 ] as const;
 
 interface GeneratorFormProps {
@@ -36,6 +49,17 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
   const [count, setCount] = useState(1);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Advanced fields
+  const [audience, setAudience] = useState("");
+  const [persona, setPersona] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [customDimensions, setCustomDimensions] = useState(false);
+  const [dimWidth, setDimWidth] = useState(1024);
+  const [dimHeight, setDimHeight] = useState(1024);
+
+  const activeAdvancedCount = [audience, persona, industry].filter(Boolean).length
+    + (customDimensions ? 1 : 0);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim() || isLoading) return;
@@ -48,6 +72,10 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
       output_format: "base64",
       ...(style ? { style: style as GenerateRequest["style"] } : {}),
       ...(brand ? { brand } : {}),
+      ...(audience.trim() ? { audience: audience.trim() } : {}),
+      ...(persona.trim() ? { persona: persona.trim() } : {}),
+      ...(industry.trim() ? { industry: industry.trim() } : {}),
+      ...(customDimensions ? { dimensions: { width: dimWidth, height: dimHeight } } : {}),
     };
     onSubmit(request);
   };
@@ -89,6 +117,7 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
             >
               <span className={styles.purposeIcon}>{getPurposeEmoji(p.value)}</span>
               <span className={styles.purposeLabel}>{p.label}</span>
+              <span className={styles.purposeDesc}>{p.description}</span>
             </button>
           ))}
         </div>
@@ -111,6 +140,13 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Brand Selection */}
+      <div className={styles.section}>
+        <label className={styles.label}>Brand</label>
+        <BrandPicker value={brand} onChange={setBrand} />
+        <BrandPreview brandId={brand} />
       </div>
 
       {/* Count & Quality Row */}
@@ -172,7 +208,12 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
         className={styles.advancedToggle}
         onClick={() => setShowAdvanced(!showAdvanced)}
       >
-        <span>Advanced Options</span>
+        <span>
+          Advanced Options
+          {activeAdvancedCount > 0 && (
+            <span className={styles.advancedBadge}>{activeAdvancedCount} active</span>
+          )}
+        </span>
         <svg
           className={`${styles.chevron} ${showAdvanced ? styles.chevronOpen : ""}`}
           width="16"
@@ -192,22 +233,134 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
 
       {showAdvanced && (
         <div className={styles.advancedSection}>
+          {/* Audience */}
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="brand">
-              Brand Slug
+            <label className={styles.label} htmlFor="audience">
+              Target Audience
             </label>
             <input
-              id="brand"
+              id="audience"
               type="text"
               className={styles.input}
-              placeholder="e.g. kashmir-bloom"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              pattern="^[a-z0-9-]*$"
+              placeholder="e.g. B2B marketing directors"
+              value={audience}
+              onChange={(e) => setAudience(e.target.value)}
+              maxLength={200}
             />
             <span className={styles.hint}>
-              Lowercase alphanumeric with hyphens. Leave empty for default brand.
+              Leave blank to use brand defaults.
             </span>
+          </div>
+
+          {/* Persona */}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="persona">
+              Persona
+            </label>
+            <input
+              id="persona"
+              type="text"
+              className={styles.input}
+              placeholder="e.g. The Growth Hacker"
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              maxLength={200}
+            />
+          </div>
+
+          {/* Industry */}
+          <div className={styles.field}>
+            <label className={styles.label}>Industry</label>
+            <div className={styles.presetChips}>
+              {INDUSTRY_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`${styles.presetChip} ${
+                    industry === preset ? styles.presetChipActive : ""
+                  }`}
+                  onClick={() => setIndustry(industry === preset ? "" : preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <input
+              id="industry"
+              type="text"
+              className={styles.input}
+              placeholder="or type a custom industry..."
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              maxLength={200}
+            />
+          </div>
+
+          {/* Custom Dimensions */}
+          <div className={styles.field}>
+            <div className={styles.dimensionsHeader}>
+              <label className={styles.label}>Custom Dimensions</label>
+              <button
+                type="button"
+                className={`${styles.dimToggleBtn} ${customDimensions ? styles.dimToggleBtnOn : ""}`}
+                onClick={() => setCustomDimensions(!customDimensions)}
+              >
+                {customDimensions ? "On" : "Off"}
+              </button>
+            </div>
+            {customDimensions && (
+              <div className={styles.dimensionsContent}>
+                <div className={styles.dimPresets}>
+                  {DIMENSION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      className={`${styles.presetChip} ${
+                        dimWidth === preset.width && dimHeight === preset.height
+                          ? styles.presetChipActive
+                          : ""
+                      }`}
+                      onClick={() => {
+                        setDimWidth(preset.width);
+                        setDimHeight(preset.height);
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.dimInputRow}>
+                  <div className={styles.dimInputGroup}>
+                    <label className={styles.dimLabel} htmlFor="dim-width">W</label>
+                    <input
+                      id="dim-width"
+                      type="number"
+                      className={`${styles.input} ${styles.dimInput}`}
+                      value={dimWidth}
+                      onChange={(e) => setDimWidth(Math.min(4096, Math.max(256, Number(e.target.value))))}
+                      min={256}
+                      max={4096}
+                      step={64}
+                    />
+                  </div>
+                  <span className={styles.dimSep}>×</span>
+                  <div className={styles.dimInputGroup}>
+                    <label className={styles.dimLabel} htmlFor="dim-height">H</label>
+                    <input
+                      id="dim-height"
+                      type="number"
+                      className={`${styles.input} ${styles.dimInput}`}
+                      value={dimHeight}
+                      onChange={(e) => setDimHeight(Math.min(4096, Math.max(256, Number(e.target.value))))}
+                      min={256}
+                      max={4096}
+                      step={64}
+                    />
+                  </div>
+                </div>
+                <span className={styles.hint}>256–4096 px per side.</span>
+              </div>
+            )}
           </div>
         </div>
       )}

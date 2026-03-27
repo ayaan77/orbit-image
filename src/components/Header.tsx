@@ -2,9 +2,11 @@ import styles from "./Header.module.css";
 
 interface HeaderProps {
   readonly onSettingsClick?: () => void;
+  readonly onHistoryClick?: () => void;
+  readonly historyCount?: number;
 }
 
-export function Header({ onSettingsClick }: HeaderProps) {
+export function Header({ onSettingsClick, onHistoryClick, historyCount = 0 }: HeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
@@ -59,9 +61,29 @@ export function Header({ onSettingsClick }: HeaderProps) {
           </div>
         </div>
         <div className={styles.rightGroup}>
+          {onHistoryClick && (
+            <button
+              className={styles.iconBtn}
+              onClick={onHistoryClick}
+              aria-label="View generation history"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {historyCount > 0 && (
+                <span className={styles.historyBadge}>{historyCount}</span>
+              )}
+            </button>
+          )}
           {onSettingsClick && (
             <button
-              className={styles.settingsBtn}
+              className={`${styles.iconBtn} ${styles.settingsBtn}`}
               onClick={onSettingsClick}
               aria-label="Open settings"
             >

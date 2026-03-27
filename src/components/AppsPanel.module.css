@@ -129,6 +129,18 @@
   font-weight: 500;
 }
 
+.fieldHint {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.fieldSubHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
 .fieldInput {
   padding: var(--space-2) var(--space-3);
   background: var(--bg-input);
@@ -329,6 +341,7 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
 }
 
 .detailLabel {
@@ -346,6 +359,14 @@
 .mono {
   font-family: var(--font-mono);
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usageUnavailable {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* ─── Client Actions ─── */
@@ -402,13 +423,829 @@
   color: var(--text-secondary);
 }
 
+/* ─── Edit Button ─── */
+.editBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.editBtn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.editBtnActive {
+  color: var(--accent);
+  border-color: rgba(139, 92, 246, 0.25);
+  background: rgba(139, 92, 246, 0.07);
+}
+
+/* ─── Inline Edit Form ─── */
+.editForm {
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-4) 0 var(--space-3);
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.editGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.editActions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+/* ─── Restore / Revoked Actions ─── */
+.revokedActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.restoreBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.restoreBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.deleteBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--error);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.deleteBtn:hover {
+  background: rgba(248, 113, 113, 0.07);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.deleteConfirmText {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.deleteBtnConfirm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: white;
+  background: var(--error);
+  border-radius: var(--radius-sm);
+  transition: opacity var(--duration-fast);
+}
+
+.deleteBtnConfirm:hover {
+  opacity: 0.85;
+}
+
+.deleteBtnCancel {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.deleteBtnCancel:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* ─── Get Code Button ─── */
+.getCodeBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--accent);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.getCodeBtn:hover {
+  background: rgba(139, 92, 246, 0.07);
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.getCodeBtnActive {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.actionsSpacer {
+  flex: 1;
+}
+
+/* ─── Code Panel (Get Code expand) ─── */
+.codePanel {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.codePanelNote {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 200, 0, 0.05);
+  border: 1px solid rgba(255, 200, 0, 0.1);
+  border-radius: var(--radius-sm);
+}
+
+.codePanelNote code {
+  font-family: var(--font-mono);
+  color: #f0c040;
+}
+
+.codePanelAsyncTitle {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: var(--space-2);
+}
+
+/* ─── Lang Tabs (shared by guide + card) ─── */
+.langTabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.langTab {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.langTab:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.langTabActive {
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ─── Integration Guide ─── */
+.guide {
+  padding: var(--space-5);
+  background: rgba(139, 92, 246, 0.04);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.guideHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.guideHeaderLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.guideSuccessIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.guideTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.guideSubtitle {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.guideDismiss {
+  padding: var(--space-1) var(--space-4);
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: background var(--duration-fast);
+}
+
+.guideDismiss:hover {
+  background: var(--accent-hover);
+}
+
+.guideStep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.guideStepLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.guideHint {
+  text-transform: none;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.keyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.keyCode {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  word-break: break-all;
+  flex: 1;
+}
+
+.copyKeyBtn {
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: background var(--duration-fast);
+}
+
+.copyKeyBtn:hover {
+  background: var(--accent-hover);
+}
+
+/* ─── Replace Key ─── */
+.replaceKeyBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.replaceKeyBtn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.replaceKeyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.replacedKeyBanner {
+  padding: var(--space-3) var(--space-4);
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.replacedKeyHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.dismissReplace {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  align-self: flex-start;
+}
+
+.dismissReplace:hover {
+  color: var(--text-secondary);
+}
+
+/* ─── Webhook Test ─── */
+.testWebhookGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.testWebhookBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.testWebhookBtn:hover:not(:disabled) {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.testWebhookBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.testOk {
+  color: var(--success) !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+  background: rgba(52, 211, 153, 0.07) !important;
+}
+
+.testFail {
+  color: var(--error) !important;
+  border-color: rgba(248, 113, 113, 0.25) !important;
+  background: rgba(248, 113, 113, 0.07) !important;
+}
+
+.testMsg {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ─── Delivery Log Button ─── */
+.deliveryLogBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast);
+}
+
+.deliveryLogBtn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.deliveryLogBtnActive {
+  color: var(--accent);
+  border-color: rgba(139, 92, 246, 0.25);
+  background: rgba(139, 92, 246, 0.07);
+}
+
+/* ─── Webhook Delivery Log Panel ─── */
+.deliveryPanel {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.deliveryEmpty {
+  padding: var(--space-4);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.deliveryTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.deliveryTable th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.deliveryTable td {
+  padding: var(--space-2);
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  vertical-align: top;
+}
+
+.deliveryTable tr:last-child td {
+  border-bottom: none;
+}
+
+.deliveryStatus {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.deliveryOk {
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--success);
+}
+
+.deliveryFail {
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--error);
+}
+
+.deliveryError {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ─── Connect Wizard ─── */
+.wizard {
+  padding: var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.wizardProgress {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.wizardProgressItem {
+  display: flex;
+  align-items: center;
+}
+
+.wizardDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  transition: all var(--duration-normal);
+  flex-shrink: 0;
+}
+
+.wizardDotActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.wizardDotDone {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.wizardLine {
+  display: inline-block;
+  width: 36px;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0 3px;
+  transition: background var(--duration-normal);
+}
+
+.wizardLineDone {
+  background: var(--success);
+}
+
+.wizardStep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.wizardStepIcon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.wizardTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.wizardSubtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: calc(var(--space-4) * -0.5) 0 0;
+}
+
+.wizardActions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Intro list */
+.wizardIntroList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.wizardIntroItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.wizardIntroNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* App type selector */
+.appTypeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+
+.appTypeTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.appTypeTile:hover {
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.appTypeTileSelected {
+  border-color: var(--accent);
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.appTypeIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.appTypeLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.appTypeDesc {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.appTypeTileSelected .appTypeLabel {
+  color: var(--accent);
+}
+
+.appTypeTileSelected .appTypeDesc {
+  color: rgba(139, 92, 246, 0.7);
+}
+
+.wizardFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+/* Key step */
+.copyKeyBtnDone {
+  background: var(--success) !important;
+}
+
+.keyLockedNote {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: calc(var(--space-4) * -0.5);
+}
+
+/* Webhook hints */
+.webhookHints {
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.webhookHintsTitle {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.webhookHintItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.webhookHintNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.webhookHintsGeneric {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ─── Cortex Context Panel ─── */
+.cortexContext {
+  padding: var(--space-3) var(--space-4);
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cortexContextHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cortexContextIcon {
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.cortexContextHeadline {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+.cortexContextData {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: calc(16px + var(--space-2));
+}
+
+.cortexContextItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.cortexContextDot {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(139, 92, 246, 0.5);
+  flex-shrink: 0;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 640px) {
-  .formGrid {
+  .formGrid,
+  .editGrid {
     grid-template-columns: 1fr;
   }
 
   .clientDetails {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .appTypeGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .wizardFields {
+    grid-template-columns: 1fr;
   }
 }

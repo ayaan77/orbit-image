@@ -6,6 +6,7 @@ export interface ClientInfo {
   readonly rateLimit?: number;
   readonly scopes?: readonly string[];
   readonly defaultWebhookUrl?: string;
+  readonly monthlyBudgetUsd?: number;
 }
 
 export type AuthResult =

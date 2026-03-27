@@ -3,19 +3,21 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/setup";
 import { cacheClear } from "@/lib/cortex/cache";
 
-// Mock OpenAI provider to avoid real API calls
+// Mock image providers to avoid real API calls
+const mockGenerate = vi.fn().mockResolvedValue([
+  {
+    data: Buffer.from("fake-png-data"),
+    mimeType: "image/png",
+    prompt: "test prompt output",
+    dimensions: { width: 1024, height: 1024 },
+  },
+]);
+
+const mockProvider = { name: "openai-mock", generate: mockGenerate };
+
 vi.mock("@/lib/providers/factory", () => ({
-  getProvider: () => ({
-    name: "openai-mock",
-    generate: vi.fn().mockResolvedValue([
-      {
-        data: Buffer.from("fake-png-data"),
-        mimeType: "image/png",
-        prompt: "test prompt output",
-        dimensions: { width: 1024, height: 1024 },
-      },
-    ]),
-  }),
+  getProvider: () => mockProvider,
+  resolveModel: () => ({ provider: mockProvider, internalModel: "gpt-image-1" }),
 }));
 
 const CORTEX_URL = "https://cortex.test.apexure.com/api/mcp";

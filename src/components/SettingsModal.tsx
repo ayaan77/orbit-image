@@ -52,7 +52,7 @@ const TABS: readonly TabDef[] = [
   },
   {
     id: "endpoints",
-    label: "Endpoints",
+    label: "API Reference",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path
@@ -67,11 +67,11 @@ const TABS: readonly TabDef[] = [
   },
   {
     id: "danger",
-    label: "Danger",
+    label: "Reset",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path
-          d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"
+          d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
@@ -460,35 +460,50 @@ function ServicesTab({
     return result.connected ? "connected" : "disconnected";
   }
 
-  const services = [
+  const allServices = [
     {
       name: "Cortex MCP",
       description: "Brand data provider",
       key: "cortex" as const,
+      alwaysShow: true,
     },
     {
       name: "OpenAI",
       description: "Image generation",
       key: "openai" as const,
+      alwaysShow: true,
     },
     {
       name: "Upstash Redis",
       description: "API key storage & rate limiting",
       key: "redis" as const,
+      alwaysShow: false,
     },
     {
       name: "Neon Postgres",
       description: "Usage tracking",
       key: "postgres" as const,
+      alwaysShow: false,
     },
   ];
 
+  const services = allServices.filter((svc) => {
+    if (svc.alwaysShow) return true;
+    if (svc.key === "redis") return serverConfig?.redisConfigured === true;
+    if (svc.key === "postgres") return serverConfig?.postgresConfigured === true;
+    return true;
+  });
+
+  const hasOptionalServices = serverConfig !== null &&
+    !serverConfig.redisConfigured && !serverConfig.postgresConfigured;
+
   const results = connection.state === "done" ? connection : null;
+  const visibleKeys = services.map((s) => s.key);
   const allConnected = results
-    ? results.cortex.connected && results.openai.connected && results.redis.connected && results.postgres.connected
+    ? visibleKeys.every((k) => results[k].connected)
     : false;
   const someConnected = results
-    ? results.cortex.connected || results.openai.connected || results.redis.connected || results.postgres.connected
+    ? visibleKeys.some((k) => results[k].connected)
     : false;
 
   return (
@@ -547,6 +562,13 @@ function ServicesTab({
           );
         })}
       </div>
+
+      {hasOptionalServices && (
+        <p className={styles.optionalServicesNote}>
+          Optional services (Redis, Postgres) are not configured on this
+          deployment.
+        </p>
+      )}
 
       {connection.state === "done" && (
         <div className={styles.overallStatus}>

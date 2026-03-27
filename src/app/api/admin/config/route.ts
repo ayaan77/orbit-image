@@ -13,6 +13,7 @@ interface ConfigResponse {
   readonly redisConfigured: boolean;
   readonly postgresConfigured: boolean;
   readonly blobConfigured: boolean;
+  readonly webhookConfigured: boolean;
   readonly activeProvider: string;
   readonly replicateConfigured: boolean;
   readonly activeModel: string;
@@ -35,6 +36,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       redisConfigured: Boolean(env.KV_REST_API_URL && env.KV_REST_API_TOKEN),
       postgresConfigured: Boolean(env.POSTGRES_URL),
       blobConfigured: Boolean(env.BLOB_READ_WRITE_TOKEN),
+      webhookConfigured: Boolean(env.WEBHOOK_SECRET),
       activeProvider: env.DEFAULT_PROVIDER,
       replicateConfigured: Boolean(env.REPLICATE_API_TOKEN),
       activeModel: env.DEFAULT_PROVIDER === "replicate"

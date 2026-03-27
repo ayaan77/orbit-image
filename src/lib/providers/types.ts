@@ -16,5 +16,5 @@ export interface GeneratedImage {
 
 export interface ImageProvider {
   readonly name: string;
-  generate(bundle: PromptBundle): Promise<readonly GeneratedImage[]>;
+  generate(bundle: PromptBundle, model?: string): Promise<readonly GeneratedImage[]>;
 }

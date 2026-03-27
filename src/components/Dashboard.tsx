@@ -91,6 +91,13 @@ interface OverviewStats {
   readonly openaiOk: boolean;
 }
 
+interface SetupConfig {
+  readonly blobConfigured: boolean;
+  readonly redisConfigured: boolean;
+  readonly webhookConfigured: boolean;
+  readonly postgresConfigured: boolean;
+}
+
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
@@ -114,7 +121,7 @@ export function Dashboard() {
 
         {/* Content Area */}
         <main className={styles.content}>
-          {activeTab === "overview" && <OverviewTab />}
+          {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
           {activeTab === "apps" && <AppsPanel />}
           {activeTab === "playground" && <Playground />}
           {activeTab === "usage" && <UsagePanel />}
@@ -125,7 +132,7 @@ export function Dashboard() {
   );
 }
 
-function OverviewTab() {
+function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void }) {
   const [stats, setStats] = useState<OverviewStats>({
     totalImages: 0,
     totalCost: 0,
@@ -134,6 +141,7 @@ function OverviewTab() {
     cortexOk: false,
     openaiOk: false,
   });
+  const [config, setConfig] = useState<SetupConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
@@ -143,10 +151,11 @@ function OverviewTab() {
 
     setLoading(true);
     try {
-      const [usageRes, clientsRes, healthRes] = await Promise.allSettled([
+      const [usageRes, clientsRes, healthRes, configRes] = await Promise.allSettled([
         fetch("/api/admin/usage?limit=1", { headers: authHeaders }),
         fetch("/api/admin/keys", { headers: authHeaders }),
         fetch("/api/health", { headers: authHeaders }),
+        fetch("/api/admin/config", { headers: authHeaders }),
       ]);
 
       let totalImages = 0;
@@ -176,6 +185,16 @@ function OverviewTab() {
         healthStatus = data.status ?? "unknown";
         cortexOk = data.cortex?.reachable ?? false;
         openaiOk = data.openai?.configured ?? false;
+      }
+
+      if (configRes.status === "fulfilled" && configRes.value.ok) {
+        const data = await configRes.value.json();
+        setConfig({
+          blobConfigured: data.blobConfigured ?? false,
+          redisConfigured: data.redisConfigured ?? false,
+          webhookConfigured: data.webhookConfigured ?? false,
+          postgresConfigured: data.postgresConfigured ?? false,
+        });
       }
 
       setStats({ totalImages, totalCost, activeClients, healthStatus, cortexOk, openaiOk });
@@ -276,6 +295,32 @@ function OverviewTab() {
             </div>
           </div>
 
+          {/* First-run nudge — shown when no apps are connected yet */}
+          {stats.activeClients === 0 && (
+            <div className={styles.firstRunBanner}>
+              <div className={styles.firstRunIcon}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className={styles.firstRunBody}>
+                <span className={styles.firstRunTitle}>No apps connected yet</span>
+                <span className={styles.firstRunDesc}>
+                  Connect your first app to start generating images, or check the setup guide to make sure everything is configured.
+                </span>
+              </div>
+              <div className={styles.firstRunActions}>
+                <button className={styles.firstRunPrimary} onClick={() => onNavigate("apps")}>
+                  Connect an App
+                </button>
+                <button className={styles.firstRunSecondary} onClick={() => onNavigate("quickstart")}>
+                  Setup Guide
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Services Status */}
           <div className={styles.servicesSection}>
             <h3 className={styles.sectionTitle}>Services</h3>
@@ -296,7 +341,205 @@ function OverviewTab() {
               </div>
             </div>
           </div>
+
+          {/* Setup Checklist */}
+          {config && (
+            <SetupChecklist
+              openaiOk={stats.openaiOk}
+              cortexOk={stats.cortexOk}
+              config={config}
+            />
+          )}
         </>
+      )}
+    </div>
+  );
+}
+
+// ─── Setup Guide ───
+
+interface SetupStep {
+  readonly ok: boolean;
+  readonly label: string;
+  readonly description: string;
+  readonly required: boolean;
+  readonly steps: readonly string[];
+}
+
+function SetupStepRow({ step, index }: { readonly step: SetupStep; readonly index: number }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className={`${styles.setupRow} ${step.ok ? styles.setupRowDone : ""}`}>
+      <div className={styles.setupRowLeft}>
+        <span className={`${styles.setupNum} ${step.ok ? styles.setupNumDone : ""}`}>
+          {step.ok ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            index + 1
+          )}
+        </span>
+        <div className={styles.setupRowBody}>
+          <div className={styles.setupRowTitle}>
+            <span className={styles.setupLabel}>{step.label}</span>
+            <span className={`${styles.setupTag} ${step.required ? styles.setupTagRequired : styles.setupTagOptional}`}>
+              {step.required ? "Required" : "Optional"}
+            </span>
+          </div>
+          <p className={styles.setupDesc}>{step.description}</p>
+          {!step.ok && expanded && (
+            <ol className={styles.setupStepList}>
+              {step.steps.map((s, i) => (
+                <li key={i} className={styles.setupStepItem}>{s}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+      {!step.ok && (
+        <button
+          className={`${styles.setupExpandBtn} ${expanded ? styles.setupExpandBtnActive : ""}`}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Hide" : "How to set up"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SetupChecklist({
+  openaiOk,
+  cortexOk,
+  config,
+}: {
+  readonly openaiOk: boolean;
+  readonly cortexOk: boolean;
+  readonly config: SetupConfig;
+}) {
+  const steps: SetupStep[] = [
+    {
+      ok: openaiOk,
+      label: "Connect image generation",
+      description: "Orbit uses OpenAI to create images. Without this, nothing works — it's the engine.",
+      required: true,
+      steps: [
+        "Go to platform.openai.com and sign in (or create a free account).",
+        "Click \"API Keys\" in the left menu, then \"Create new secret key\". Copy it.",
+        "Open your Vercel project → Settings → Environment Variables.",
+        "Add a new variable: name it OPENAI_API_KEY, paste your key as the value.",
+        "Click Save, then go to Deployments and hit Redeploy.",
+      ],
+    },
+    {
+      ok: cortexOk,
+      label: "Connect your brand data",
+      description: "Without this, images are generated with generic prompts. With it, Orbit uses your brand colors, voice, and audience — making every image on-brand automatically.",
+      required: false,
+      steps: [
+        "Ask your Cortex admin for your brand's API endpoint URL. It looks like https://yourcompany.apexure.com.",
+        "In Vercel env vars, add: CORTEX_BASE_URL = <the URL you were given>.",
+        "Redeploy. Images will now be tailored to your brand.",
+      ],
+    },
+    {
+      ok: config.blobConfigured,
+      label: "Enable image URLs",
+      description: "Instead of returning raw image data (which is huge and slow), Orbit uploads each image and returns a clean URL. Apps and browsers can display these instantly.",
+      required: false,
+      steps: [
+        "In Vercel: go to Storage → click Create → choose Blob Store.",
+        "Give it any name (e.g. \"orbit-images\") and create it.",
+        "In the store settings, copy the BLOB_READ_WRITE_TOKEN value.",
+        "Add it to your project's Environment Variables with that exact name.",
+        "Redeploy.",
+      ],
+    },
+    {
+      ok: config.redisConfigured,
+      label: "Enable per-app API keys",
+      description: "This lets you create separate access keys for each app you connect. It also enables background (async) image generation — so apps don't have to wait 20 seconds for a response.",
+      required: false,
+      steps: [
+        "Go to upstash.com and sign up for a free account.",
+        "Click \"Create Database\" → choose Redis → pick any region close to you.",
+        "Once created, copy the REST URL and REST Token from the database page.",
+        "In Vercel env vars, add: KV_REST_API_URL = <REST URL> and KV_REST_API_TOKEN = <REST Token>.",
+        "Redeploy.",
+      ],
+    },
+    {
+      ok: config.webhookConfigured,
+      label: "Enable automatic image delivery",
+      description: "When an image is ready, Orbit can push it directly to your app — no waiting or checking. Think of it like a notification: \"Your image is done, here it is.\"",
+      required: false,
+      steps: [
+        "You need a random secret password that only Orbit and your app know about.",
+        "Generate one by running this command in your terminal: openssl rand -hex 32",
+        "In Vercel env vars, add: WEBHOOK_SECRET = <the value you generated>.",
+        "Share the same secret with your developer so they can verify webhook payloads.",
+        "Redeploy.",
+      ],
+    },
+    {
+      ok: config.postgresConfigured,
+      label: "Enable usage tracking",
+      description: "See how many images each connected app has generated and how much it's cost. Useful for understanding usage patterns and setting budgets.",
+      required: false,
+      steps: [
+        "In Vercel: go to Storage → click Create → choose Postgres.",
+        "Give it any name and create it.",
+        "Copy the POSTGRES_URL (connection string) from the database settings.",
+        "In Vercel env vars, add: POSTGRES_URL = <connection string>.",
+        "Redeploy — the database tables are created automatically on first use.",
+      ],
+    },
+  ];
+
+  const doneCount = steps.filter((s) => s.ok).length;
+  const allOk = doneCount === steps.length;
+  const requiredDone = steps.filter((s) => s.required).every((s) => s.ok);
+
+  return (
+    <div className={styles.setupSection}>
+      <div className={styles.setupHeader}>
+        <div>
+          <h3 className={styles.sectionTitle}>Getting Started</h3>
+          <p className={styles.setupSubtitle}>
+            {allOk
+              ? "Everything is connected and working."
+              : requiredDone
+                ? "Core setup is done. The optional services below add more features."
+                : "Follow the steps below to get Orbit Image fully set up."}
+          </p>
+        </div>
+        <div className={styles.setupProgress}>
+          <span className={styles.setupProgressText}>{doneCount} / {steps.length}</span>
+          <div className={styles.setupProgressBar}>
+            <div
+              className={styles.setupProgressFill}
+              style={{ width: `${(doneCount / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {allOk ? (
+        <div className={styles.setupAllDone}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M22 4L12 14.01l-3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>All services are connected. Orbit Image is fully operational.</span>
+        </div>
+      ) : (
+        <div className={styles.setupList}>
+          {steps.map((step, i) => (
+            <SetupStepRow key={step.label} step={step} index={i} />
+          ))}
+        </div>
       )}
     </div>
   );

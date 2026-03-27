@@ -47,6 +47,16 @@ export const GenerateRequestSchema = z.object({
   count: z.number().int().min(1).max(4).default(1),
   quality: z.enum(["standard", "hd"]).default("hd"),
 
+  // Model selection (optional — falls back to DEFAULT_MODEL / DEFAULT_PROVIDER env vars)
+  model: z.enum([
+    "gpt-image-1",
+    "dall-e-3",
+    "flux-pro",
+    "flux-dev",
+    "flux-schnell",
+    "grok-aurora",
+  ]).optional(),
+
   // Output format
   output_format: z.enum(["base64", "url"]).default("base64"),
 

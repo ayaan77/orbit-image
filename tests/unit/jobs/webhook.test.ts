@@ -10,7 +10,7 @@ function makeCompletedJob(overrides: Partial<Job> = {}): Job {
     id: "job_abc123def456789012345678",
     status: "completed",
     clientId: "client_123",
-    request: { topic: "test", purpose: "blog-hero", brand: "apexure" },
+    request: { topic: "test", purpose: "blog-hero", brand: "apexure", count: 1, quality: "hd", output_format: "base64" },
     result: {
       images: [
         {
@@ -71,7 +71,8 @@ describe("verifySignature", () => {
 });
 
 describe("deliverWebhook", () => {
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let fetchSpy: ReturnType<typeof vi.spyOn<any, any>>;
 
   beforeEach(() => {
     vi.useFakeTimers();
