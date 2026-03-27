@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { GenerateRequest } from "@/types/api";
+import { DEFAULT_MODEL, type ModelId } from "@/lib/providers/models";
 import { BrandPicker } from "@/components/BrandPicker";
 import { BrandPreview } from "@/components/BrandPreview";
+import { ModelSelector } from "@/components/ModelSelector";
+import { GenerationSummary } from "@/components/GenerationSummary";
+import type { ProviderStatus } from "@/lib/client/useProviderStatus";
 import styles from "./GeneratorForm.module.css";
 
 const PURPOSES = [
@@ -38,18 +42,20 @@ const DIMENSION_PRESETS = [
 interface GeneratorFormProps {
   readonly onSubmit: (data: GenerateRequest) => void;
   readonly isLoading: boolean;
+  readonly providerStatus: ProviderStatus | null;
 }
 
-export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
+export function GeneratorForm({ onSubmit, isLoading, providerStatus }: GeneratorFormProps) {
   const [topic, setTopic] = useState("");
   const [purpose, setPurpose] = useState<GenerateRequest["purpose"]>("blog-hero");
+  const [model, setModel] = useState<ModelId>(DEFAULT_MODEL);
   const [style, setStyle] = useState<string>("");
   const [brand, setBrand] = useState("");
   const [quality, setQuality] = useState<"standard" | "hd">("hd");
   const [count, setCount] = useState(1);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showFineTune, setShowFineTune] = useState(false);
 
-  // Advanced fields
+  // Fine-tune fields
   const [audience, setAudience] = useState("");
   const [persona, setPersona] = useState("");
   const [industry, setIndustry] = useState("");
@@ -57,8 +63,14 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
   const [dimWidth, setDimWidth] = useState(1024);
   const [dimHeight, setDimHeight] = useState(1024);
 
-  const activeAdvancedCount = [audience, persona, industry].filter(Boolean).length
-    + (customDimensions ? 1 : 0);
+  const fineTuneCount = useMemo(() =>
+    [audience, persona, industry, brand].filter(Boolean).length
+    + (customDimensions ? 1 : 0),
+    [audience, persona, industry, brand, customDimensions]
+  );
+
+  // Section 2 auto-expands when topic has content
+  const showHowSection = topic.trim().length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +79,7 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
     const request: GenerateRequest = {
       topic: topic.trim(),
       purpose,
+      model,
       count,
       quality,
       output_format: "base64",
@@ -82,7 +95,7 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
-      {/* Topic Input */}
+      {/* ═══ Section 1: "What" — Always visible ═══ */}
       <div className={styles.topicSection}>
         <label className={styles.label} htmlFor="topic">
           What do you want to create?
@@ -102,7 +115,6 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
         </span>
       </div>
 
-      {/* Purpose Selection */}
       <div className={styles.section}>
         <label className={styles.label}>Purpose</label>
         <div className={styles.purposeGrid}>
@@ -123,99 +135,113 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
         </div>
       </div>
 
-      {/* Style Selection */}
-      <div className={styles.section}>
-        <label className={styles.label}>Style</label>
-        <div className={styles.styleGrid}>
-          {STYLES.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              className={`${styles.styleChip} ${
-                style === s.value ? styles.styleChipActive : ""
-              }`}
-              onClick={() => setStyle(style === s.value ? "" : s.value)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ═══ Section 2: "How" — Auto-reveals when topic filled ═══ */}
+      {showHowSection && (
+        <div className={styles.howSection}>
+          <ModelSelector
+            value={model}
+            onChange={setModel}
+            purpose={purpose}
+            quality={quality}
+            providerStatus={providerStatus}
+          />
 
-      {/* Brand Selection */}
-      <div className={styles.section}>
-        <label className={styles.label}>Brand</label>
-        <BrandPicker value={brand} onChange={setBrand} />
-        <BrandPreview brandId={brand} />
-      </div>
-
-      {/* Count & Quality Row */}
-      <div className={styles.rowGroup}>
-        <div className={styles.fieldSmall}>
-          <label className={styles.label} htmlFor="count">
-            Count
-          </label>
-          <div className={styles.counterControl}>
-            <button
-              type="button"
-              className={styles.counterBtn}
-              onClick={() => setCount(Math.max(1, count - 1))}
-              disabled={count <= 1}
-              aria-label="Decrease count"
-            >
-              -
-            </button>
-            <span className={styles.counterValue}>{count}</span>
-            <button
-              type="button"
-              className={styles.counterBtn}
-              onClick={() => setCount(Math.min(4, count + 1))}
-              disabled={count >= 4}
-              aria-label="Increase count"
-            >
-              +
-            </button>
+          <div className={styles.section}>
+            <label className={styles.label}>Style</label>
+            <div className={styles.styleGrid}>
+              {STYLES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className={`${styles.styleChip} ${
+                    style === s.value ? styles.styleChipActive : ""
+                  }`}
+                  onClick={() => setStyle(style === s.value ? "" : s.value)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className={styles.fieldSmall}>
-          <label className={styles.label}>Quality</label>
-          <div className={styles.toggleGroup}>
-            <button
-              type="button"
-              className={`${styles.toggleBtn} ${
-                quality === "standard" ? styles.toggleBtnActive : ""
-              }`}
-              onClick={() => setQuality("standard")}
-            >
-              Standard
-            </button>
-            <button
-              type="button"
-              className={`${styles.toggleBtn} ${
-                quality === "hd" ? styles.toggleBtnActive : ""
-              }`}
-              onClick={() => setQuality("hd")}
-            >
-              HD
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Advanced Options */}
+          {/* Count & Quality Row */}
+          <div className={styles.rowGroup}>
+            <div className={styles.fieldSmall}>
+              <label className={styles.label} htmlFor="count">
+                Count
+              </label>
+              <div className={styles.counterControl}>
+                <button
+                  type="button"
+                  className={styles.counterBtn}
+                  onClick={() => setCount(Math.max(1, count - 1))}
+                  disabled={count <= 1}
+                  aria-label="Decrease count"
+                >
+                  -
+                </button>
+                <span className={styles.counterValue}>{count}</span>
+                <button
+                  type="button"
+                  className={styles.counterBtn}
+                  onClick={() => setCount(Math.min(4, count + 1))}
+                  disabled={count >= 4}
+                  aria-label="Increase count"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className={styles.fieldSmall}>
+              <label className={styles.label}>Quality</label>
+              <div className={styles.toggleGroup}>
+                <button
+                  type="button"
+                  className={`${styles.toggleBtn} ${
+                    quality === "standard" ? styles.toggleBtnActive : ""
+                  }`}
+                  onClick={() => setQuality("standard")}
+                >
+                  Standard
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.toggleBtn} ${
+                    quality === "hd" ? styles.toggleBtnActive : ""
+                  }`}
+                  onClick={() => setQuality("hd")}
+                >
+                  HD
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <GenerationSummary
+            purpose={purpose}
+            model={model}
+            quality={quality}
+            count={count}
+            brand={brand}
+            style={style}
+          />
+        </div>
+      )}
+
+      {/* ═══ Section 3: "Fine-tune" — Collapsed by default ═══ */}
       <button
         type="button"
         className={styles.advancedToggle}
-        onClick={() => setShowAdvanced(!showAdvanced)}
+        onClick={() => setShowFineTune(!showFineTune)}
       >
         <span>
-          Advanced Options
-          {activeAdvancedCount > 0 && (
-            <span className={styles.advancedBadge}>{activeAdvancedCount} active</span>
+          Fine-tune
+          {fineTuneCount > 0 && (
+            <span className={styles.advancedBadge}>{fineTuneCount}</span>
           )}
         </span>
         <svg
-          className={`${styles.chevron} ${showAdvanced ? styles.chevronOpen : ""}`}
+          className={`${styles.chevron} ${showFineTune ? styles.chevronOpen : ""}`}
           width="16"
           height="16"
           viewBox="0 0 16 16"
@@ -231,8 +257,15 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
         </svg>
       </button>
 
-      {showAdvanced && (
+      {showFineTune && (
         <div className={styles.advancedSection}>
+          {/* Brand Selection */}
+          <div className={styles.field}>
+            <label className={styles.label}>Brand</label>
+            <BrandPicker value={brand} onChange={setBrand} />
+            <BrandPreview brandId={brand} />
+          </div>
+
           {/* Audience */}
           <div className={styles.field}>
             <label className={styles.label} htmlFor="audience">
@@ -343,7 +376,7 @@ export function GeneratorForm({ onSubmit, isLoading }: GeneratorFormProps) {
                       step={64}
                     />
                   </div>
-                  <span className={styles.dimSep}>×</span>
+                  <span className={styles.dimSep}>&times;</span>
                   <div className={styles.dimInputGroup}>
                     <label className={styles.dimLabel} htmlFor="dim-height">H</label>
                     <input

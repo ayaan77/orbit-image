@@ -7,6 +7,8 @@ export interface ClientInfo {
   readonly scopes?: readonly string[];
   readonly defaultWebhookUrl?: string;
   readonly monthlyBudgetUsd?: number;
+  readonly email?: string;
+  readonly source?: "admin" | "studio";
 }
 
 export type AuthResult =

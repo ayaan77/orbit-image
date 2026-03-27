@@ -111,6 +111,7 @@ interface ServerConfig {
   readonly blobConfigured: boolean;
   readonly activeProvider: string;
   readonly replicateConfigured: boolean;
+  readonly xaiConfigured: boolean;
   readonly activeModel: string;
 }
 
@@ -460,57 +461,74 @@ function ServicesTab({
     return result.connected ? "connected" : "disconnected";
   }
 
-  const allServices = [
+  const coreServices = [
     {
       name: "Cortex MCP",
-      description: "Brand data provider",
+      description: "Brand data provider — colors, voice, personas",
       key: "cortex" as const,
-      alwaysShow: true,
     },
     {
       name: "OpenAI",
-      description: "Image generation",
+      description: "Image generation — GPT Image 1, DALL-E 3",
       key: "openai" as const,
-      alwaysShow: true,
-    },
-    {
-      name: "Upstash Redis",
-      description: "API key storage & rate limiting",
-      key: "redis" as const,
-      alwaysShow: false,
-    },
-    {
-      name: "Neon Postgres",
-      description: "Usage tracking",
-      key: "postgres" as const,
-      alwaysShow: false,
     },
   ];
 
-  const services = allServices.filter((svc) => {
-    if (svc.alwaysShow) return true;
-    if (svc.key === "redis") return serverConfig?.redisConfigured === true;
-    if (svc.key === "postgres") return serverConfig?.postgresConfigured === true;
-    return true;
-  });
+  const infraServices = [
+    {
+      name: "Upstash Redis",
+      description: "API keys, rate limiting, async jobs",
+      key: "redis" as const,
+      configured: serverConfig?.redisConfigured,
+    },
+    {
+      name: "Neon Postgres",
+      description: "Usage tracking, webhook logs",
+      key: "postgres" as const,
+      configured: serverConfig?.postgresConfigured,
+    },
+  ];
 
-  const hasOptionalServices = serverConfig !== null &&
-    !serverConfig.redisConfigured && !serverConfig.postgresConfigured;
+  const aiProviders = [
+    {
+      name: "OpenAI",
+      models: "GPT Image 1, DALL-E 3",
+      envVar: "OPENAI_API_KEY",
+      configured: connection.state === "done" ? connection.openai.connected : null,
+      signupUrl: "platform.openai.com/api-keys",
+      required: true,
+    },
+    {
+      name: "Replicate",
+      models: "Flux Pro, Flux Dev, Flux Schnell",
+      envVar: "REPLICATE_API_TOKEN",
+      configured: serverConfig?.replicateConfigured ?? false,
+      signupUrl: "replicate.com/account/api-tokens",
+      required: false,
+    },
+    {
+      name: "xAI",
+      models: "Grok Aurora",
+      envVar: "XAI_API_KEY",
+      configured: serverConfig?.xaiConfigured ?? false,
+      signupUrl: "console.x.ai",
+      required: false,
+    },
+  ];
 
   const results = connection.state === "done" ? connection : null;
-  const visibleKeys = services.map((s) => s.key);
-  const allConnected = results
-    ? visibleKeys.every((k) => results[k].connected)
+  const coreConnected = results
+    ? coreServices.every((s) => results[s.key].connected)
     : false;
   const someConnected = results
-    ? visibleKeys.some((k) => results[k].connected)
+    ? coreServices.some((s) => results[s.key].connected)
     : false;
 
   return (
     <div className={styles.section}>
       <div className={styles.servicesHeader}>
         <p className={styles.hint}>
-          Live connectivity status for all backend services.
+          Live connectivity status for all services and AI providers.
         </p>
         <button
           className={styles.testBtn}
@@ -525,13 +543,7 @@ function ServicesTab({
           ) : (
             <>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M22 12h-4l-3 9L9 3l-3 9H2"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Retest
             </>
@@ -539,42 +551,119 @@ function ServicesTab({
         </button>
       </div>
 
-      <div className={styles.serviceGrid}>
-        {services.map((svc) => {
-          const result = results?.[svc.key];
-          const status = connection.state === "testing" ? "unknown" : getServiceStatus(result);
-          return (
-            <div key={svc.name} className={styles.serviceCard}>
+      {/* AI Providers */}
+      <div className={styles.providerSection}>
+        <p className={styles.providerSectionTitle}>AI Image Providers</p>
+        <div className={styles.serviceGrid}>
+          {aiProviders.map((p) => (
+            <div key={p.name} className={styles.serviceCard}>
               <div className={styles.serviceInfo}>
-                <span className={styles.serviceName}>{svc.name}</span>
-                <span className={styles.serviceDesc}>{svc.description}</span>
-                {result?.error && !result.connected && (
-                  <span className={styles.serviceError}>{result.error}</span>
-                )}
+                <span className={styles.serviceName}>
+                  {p.name}
+                  {p.required && <span className={styles.requiredDot}> *</span>}
+                </span>
+                <span className={styles.serviceDesc}>{p.models}</span>
+                <span className={styles.serviceDesc}>
+                  Env: <code>{p.envVar}</code>
+                </span>
               </div>
               <div className={styles.serviceBadgeGroup}>
-                <ServiceBadge status={status} />
-                {result?.latencyMs !== undefined && result.connected && (
-                  <span className={styles.latency}>{result.latencyMs}ms</span>
-                )}
+                <ServiceBadge
+                  status={
+                    connection.state === "testing"
+                      ? "unknown"
+                      : p.configured
+                        ? "connected"
+                        : "disconnected"
+                  }
+                />
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
+        <p className={styles.optionalServicesNote}>
+          * Required. Others are optional — each unlocks additional models in the Playground.
+        </p>
       </div>
 
-      {hasOptionalServices && (
-        <p className={styles.optionalServicesNote}>
-          Optional services (Redis, Postgres) are not configured on this
-          deployment.
-        </p>
+      {/* Core Services */}
+      <div className={styles.providerSection}>
+        <p className={styles.providerSectionTitle}>Core Services</p>
+        <div className={styles.serviceGrid}>
+          {coreServices.map((svc) => {
+            const result = results?.[svc.key];
+            const status = connection.state === "testing" ? "unknown" : getServiceStatus(result);
+            return (
+              <div key={svc.name} className={styles.serviceCard}>
+                <div className={styles.serviceInfo}>
+                  <span className={styles.serviceName}>{svc.name}</span>
+                  <span className={styles.serviceDesc}>{svc.description}</span>
+                  {result?.error && !result.connected && (
+                    <span className={styles.serviceError}>{result.error}</span>
+                  )}
+                </div>
+                <div className={styles.serviceBadgeGroup}>
+                  <ServiceBadge status={status} />
+                  {result?.latencyMs !== undefined && result.connected && (
+                    <span className={styles.latency}>{result.latencyMs}ms</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Infrastructure */}
+      {serverConfig && (
+        <div className={styles.providerSection}>
+          <p className={styles.providerSectionTitle}>Infrastructure</p>
+          <div className={styles.serviceGrid}>
+            {infraServices.map((svc) => {
+              const result = results?.[svc.key];
+              const status = connection.state === "testing"
+                ? "unknown"
+                : svc.configured
+                  ? "connected"
+                  : "disconnected";
+              return (
+                <div key={svc.name} className={styles.serviceCard}>
+                  <div className={styles.serviceInfo}>
+                    <span className={styles.serviceName}>{svc.name}</span>
+                    <span className={styles.serviceDesc}>{svc.description}</span>
+                    {result?.error && !result.connected && (
+                      <span className={styles.serviceError}>{result.error}</span>
+                    )}
+                  </div>
+                  <div className={styles.serviceBadgeGroup}>
+                    <ServiceBadge status={status} />
+                    {result?.latencyMs !== undefined && result.connected && (
+                      <span className={styles.latency}>{result.latencyMs}ms</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {/* Blob storage */}
+            <div className={styles.serviceCard}>
+              <div className={styles.serviceInfo}>
+                <span className={styles.serviceName}>Vercel Blob</span>
+                <span className={styles.serviceDesc}>Image URL storage & CDN</span>
+              </div>
+              <div className={styles.serviceBadgeGroup}>
+                <ServiceBadge status={serverConfig.blobConfigured ? "connected" : "disconnected"} />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Overall */}
       {connection.state === "done" && (
         <div className={styles.overallStatus}>
           <span
             className={`${styles.statusDot} ${
-              allConnected
+              coreConnected
                 ? styles.dotGreen
                 : someConnected
                   ? styles.dotYellow
@@ -583,8 +672,8 @@ function ServicesTab({
           />
           <span className={styles.statusText}>
             Overall:{" "}
-            {allConnected
-              ? "All systems operational"
+            {coreConnected
+              ? "All core services operational"
               : someConnected
                 ? "Some services degraded"
                 : "Services unreachable"}
@@ -592,36 +681,19 @@ function ServicesTab({
         </div>
       )}
 
+      {/* Active model */}
       {serverConfig && (
         <div className={styles.providerSection}>
-          <p className={styles.providerSectionTitle}>Image Provider</p>
+          <p className={styles.providerSectionTitle}>Active Default</p>
           <div className={styles.providerCard}>
             <div className={styles.providerRow}>
-              <span className={styles.providerLabel}>Active provider</span>
-              <span className={styles.providerBadge}>
-                {serverConfig.activeProvider === "replicate" ? "Replicate" : "OpenAI"}
-              </span>
-            </div>
-            <div className={styles.providerRow}>
-              <span className={styles.providerLabel}>Model</span>
+              <span className={styles.providerLabel}>Default model</span>
               <span className={styles.providerModel}>{serverConfig.activeModel}</span>
             </div>
             <div className={styles.providerRow}>
-              <span className={styles.providerLabel}>Blob storage</span>
-              <span className={serverConfig.blobConfigured ? styles.providerOk : styles.providerMissing}>
-                {serverConfig.blobConfigured ? "Configured" : "Not configured"}
-              </span>
+              <span className={styles.providerLabel}>Default provider</span>
+              <span className={styles.providerBadge}>{serverConfig.activeProvider}</span>
             </div>
-            {serverConfig.activeProvider === "replicate" && !serverConfig.replicateConfigured && (
-              <p className={styles.providerWarning}>
-                REPLICATE_API_TOKEN is not set — Replicate provider will fail.
-              </p>
-            )}
-            {!serverConfig.blobConfigured && (
-              <p className={styles.providerWarning}>
-                Set BLOB_READ_WRITE_TOKEN to enable output_format: &quot;url&quot;.
-              </p>
-            )}
           </div>
         </div>
       )}

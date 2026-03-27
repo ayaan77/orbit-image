@@ -29,37 +29,51 @@ describe("GeneratorForm", () => {
   });
 
   it("renders without crashing", () => {
-    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} />);
-    // At least one generate button should exist (allow for StrictMode double-render)
+    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} providerStatus={null} />);
     expect(screen.getAllByRole("button", { name: /generate/i }).length).toBeGreaterThanOrEqual(1);
   });
 
   it("disables submit button while loading", () => {
-    render(<GeneratorForm onSubmit={onSubmit} isLoading={true} />);
+    render(<GeneratorForm onSubmit={onSubmit} isLoading={true} providerStatus={null} />);
     const buttons = screen.getAllByRole("button", { name: /generating/i });
     expect(buttons.length).toBeGreaterThanOrEqual(1);
     buttons.forEach((btn) => expect(btn).toBeDisabled());
   });
 
   it("shows topic input", () => {
-    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} />);
+    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} providerStatus={null} />);
     expect(screen.getAllByPlaceholderText(/describe your image/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("does not submit when topic is empty", () => {
-    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} />);
+    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} providerStatus={null} />);
     fireEvent.click(screen.getAllByRole("button", { name: /generate/i })[0]);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("calls onSubmit with topic when form is submitted", () => {
-    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} />);
+  it("calls onSubmit with topic and model when form is submitted", () => {
+    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} providerStatus={null} />);
     fireEvent.change(screen.getAllByPlaceholderText(/describe your image/i)[0], {
       target: { value: "a mountain at sunset" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: /generate/i })[0]);
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ topic: "a mountain at sunset" }),
+      expect.objectContaining({
+        topic: "a mountain at sunset",
+        model: "gpt-image-1",
+      }),
     );
+  });
+
+  it("shows model selector after typing a topic (progressive disclosure)", () => {
+    render(<GeneratorForm onSubmit={onSubmit} isLoading={false} providerStatus={null} />);
+    // Before typing — no model cards visible
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+
+    // Type a topic — model selector should appear
+    fireEvent.change(screen.getAllByPlaceholderText(/describe your image/i)[0], {
+      target: { value: "test topic" },
+    });
+    expect(screen.getAllByRole("radio").length).toBe(6);
   });
 });

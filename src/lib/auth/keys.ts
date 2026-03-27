@@ -51,6 +51,9 @@ export async function createApiKey(
     readonly rateLimit?: number;
     readonly scopes?: readonly string[];
     readonly defaultWebhookUrl?: string;
+    readonly monthlyBudgetUsd?: number;
+    readonly email?: string;
+    readonly source?: "admin" | "studio";
   },
 ): Promise<{ rawKey: string; client: ClientInfo }> {
   const kv = getKv();
@@ -70,6 +73,9 @@ export async function createApiKey(
     ...(opts?.rateLimit !== undefined && { rateLimit: opts.rateLimit }),
     ...(opts?.scopes !== undefined && { scopes: opts.scopes }),
     ...(opts?.defaultWebhookUrl !== undefined && { defaultWebhookUrl: opts.defaultWebhookUrl }),
+    ...(opts?.monthlyBudgetUsd !== undefined && { monthlyBudgetUsd: opts.monthlyBudgetUsd }),
+    ...(opts?.email !== undefined && { email: opts.email }),
+    ...(opts?.source !== undefined && { source: opts.source }),
   };
 
   // Store key hash → client info

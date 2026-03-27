@@ -175,6 +175,14 @@
   transform: translateY(-1px);
 }
 
+/* ─── How Section (auto-reveals) ─── */
+.howSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
 /* ─── Row Group ─── */
 .rowGroup {
   display: flex;

@@ -1,0 +1,221 @@
+/* ─── ModelSelector ─── */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.summary {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ─── Horizontal Strip ─── */
+
+.strip {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-1);
+  scrollbar-width: thin;
+}
+
+.strip::-webkit-scrollbar {
+  height: 3px;
+}
+
+.strip::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-full);
+}
+
+/* ─── Model Card ─── */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 130px;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  scroll-snap-align: start;
+  text-align: left;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.card:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-default);
+  transform: translateY(-1px);
+}
+
+.cardSelected {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow);
+}
+
+.cardSelected:hover {
+  border-color: var(--accent-hover);
+}
+
+.cardLocked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cardLocked:hover {
+  transform: none;
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+}
+
+/* ─── Recommended Badge ─── */
+
+.recommendedBadge {
+  position: absolute;
+  top: -8px;
+  right: var(--space-2);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-accent);
+  color: white;
+  line-height: 1.4;
+}
+
+/* ─── Card Internals ─── */
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.providerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.providerLabel {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.modelName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+/* ─── Tier Badges ─── */
+
+.tierBadge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  line-height: 1.4;
+}
+
+.tierfast {
+  color: var(--tier-fast);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.tierBadge.tierfast {
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.tierstandard {
+  color: var(--tier-standard);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.tierBadge.tierstandard {
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.tierpremium {
+  color: var(--tier-premium);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.tierBadge.tierpremium {
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.costHint {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ─── Lock Overlay ─── */
+
+.lockOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: rgba(9, 9, 11, 0.7);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 500;
+  backdrop-filter: blur(2px);
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 480px) {
+  .card {
+    min-width: 115px;
+    padding: var(--space-2);
+  }
+
+  .modelName {
+    font-size: var(--text-xs);
+  }
+}

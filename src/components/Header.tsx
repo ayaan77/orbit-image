@@ -1,12 +1,28 @@
+import Link from "next/link";
+import type { ProviderStatus } from "@/lib/client/useProviderStatus";
 import styles from "./Header.module.css";
 
 interface HeaderProps {
   readonly onSettingsClick?: () => void;
   readonly onHistoryClick?: () => void;
   readonly historyCount?: number;
+  readonly showStudioLink?: boolean;
+  readonly providerStatus?: ProviderStatus | null;
 }
 
-export function Header({ onSettingsClick, onHistoryClick, historyCount = 0 }: HeaderProps) {
+const PROVIDER_DOTS: { key: "openai" | "replicate" | "xai"; label: string }[] = [
+  { key: "openai", label: "OpenAI" },
+  { key: "replicate", label: "Replicate" },
+  { key: "xai", label: "xAI" },
+];
+
+export function Header({
+  onSettingsClick,
+  onHistoryClick,
+  historyCount = 0,
+  showStudioLink,
+  providerStatus,
+}: HeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
@@ -61,6 +77,35 @@ export function Header({ onSettingsClick, onHistoryClick, historyCount = 0 }: He
           </div>
         </div>
         <div className={styles.rightGroup}>
+          {showStudioLink && (
+            <Link href="/studio" className={styles.studioLink}>
+              Try Studio
+            </Link>
+          )}
+
+          {/* Provider status dots */}
+          {providerStatus && (
+            <div className={styles.providerDots} aria-label="Provider status">
+              {PROVIDER_DOTS.map(({ key, label }) => (
+                <span
+                  key={key}
+                  className={`${styles.providerDot} ${
+                    providerStatus.providers[key].configured
+                      ? styles.providerDotActive
+                      : styles.providerDotInactive
+                  }`}
+                  style={
+                    providerStatus.providers[key].configured
+                      ? { backgroundColor: `var(--provider-${key})` }
+                      : undefined
+                  }
+                  title={`${label}: ${providerStatus.providers[key].configured ? "Connected" : "Not configured"}`}
+                  aria-label={`${label} ${providerStatus.providers[key].configured ? "connected" : "not configured"}`}
+                />
+              ))}
+            </div>
+          )}
+
           {onHistoryClick && (
             <button
               className={styles.iconBtn}

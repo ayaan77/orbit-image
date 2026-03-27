@@ -89,6 +89,7 @@ export interface GenerateResponse {
     readonly cortexDataCached: boolean;
     readonly cortexAvailable?: boolean;
     readonly resultCached?: boolean;
+    readonly model?: string;
   };
 }
 

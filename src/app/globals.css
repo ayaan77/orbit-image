@@ -26,6 +26,16 @@
   --warning: #fbbf24;
   --error: #f87171;
 
+  /* Provider accent colors */
+  --provider-openai: #10a37f;
+  --provider-replicate: #8b5cf6;
+  --provider-xai: #3b82f6;
+
+  /* Model tier badge colors */
+  --tier-fast: var(--success);
+  --tier-standard: #60a5fa;
+  --tier-premium: var(--warning);
+
   /* Gradients */
   --gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
   --gradient-card: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);

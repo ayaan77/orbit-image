@@ -663,6 +663,11 @@
   margin-bottom: var(--space-2);
 }
 
+.requiredDot {
+  color: var(--error);
+  font-weight: 700;
+}
+
 .providerCard {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);

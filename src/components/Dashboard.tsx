@@ -96,6 +96,8 @@ interface SetupConfig {
   readonly redisConfigured: boolean;
   readonly webhookConfigured: boolean;
   readonly postgresConfigured: boolean;
+  readonly replicateConfigured: boolean;
+  readonly xaiConfigured: boolean;
 }
 
 export function Dashboard() {
@@ -194,6 +196,8 @@ function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void
           redisConfigured: data.redisConfigured ?? false,
           webhookConfigured: data.webhookConfigured ?? false,
           postgresConfigured: data.postgresConfigured ?? false,
+          replicateConfigured: data.replicateConfigured ?? false,
+          xaiConfigured: data.xaiConfigured ?? false,
         });
       }
 
@@ -420,10 +424,11 @@ function SetupChecklist({
   readonly config: SetupConfig;
 }) {
   const steps: SetupStep[] = [
+    // ─── AI Models (the core) ───
     {
       ok: openaiOk,
-      label: "Connect image generation",
-      description: "Orbit uses OpenAI to create images. Without this, nothing works — it's the engine.",
+      label: "OpenAI — GPT Image 1 & DALL-E 3",
+      description: "The default image engine. Generates high-quality, reliable images. You need at least this one to use Orbit.",
       required: true,
       steps: [
         "Go to platform.openai.com and sign in (or create a free account).",
@@ -431,69 +436,100 @@ function SetupChecklist({
         "Open your Vercel project → Settings → Environment Variables.",
         "Add a new variable: name it OPENAI_API_KEY, paste your key as the value.",
         "Click Save, then go to Deployments and hit Redeploy.",
+        "Cost: ~$0.01 per image (standard) / ~$0.04 per image (HD). Pay-as-you-go, no minimum.",
       ],
     },
     {
-      ok: cortexOk,
-      label: "Connect your brand data",
-      description: "Without this, images are generated with generic prompts. With it, Orbit uses your brand colors, voice, and audience — making every image on-brand automatically.",
+      ok: config.replicateConfigured,
+      label: "Replicate — Flux Pro, Dev & Schnell",
+      description: "Adds 3 more models from Black Forest Labs. Flux Schnell is the fastest (under 2 seconds). Flux Pro gives the best style control. Great as a second option alongside OpenAI.",
       required: false,
       steps: [
-        "Ask your Cortex admin for your brand's API endpoint URL. It looks like https://yourcompany.apexure.com.",
+        "Go to replicate.com and sign up (free account, no credit card needed to start).",
+        "Click your avatar → \"API tokens\" → create a new token. Copy it.",
+        "In your Vercel project → Settings → Environment Variables.",
+        "Add: REPLICATE_API_TOKEN = <paste your token>.",
+        "Redeploy. Three new models will appear in the Playground: Flux Pro, Flux Dev, and Flux Schnell.",
+        "Cost: Flux Schnell ~$0.003/image (cheapest), Flux Pro ~$0.05/image (highest quality).",
+      ],
+    },
+    {
+      ok: config.xaiConfigured,
+      label: "xAI — Grok Aurora",
+      description: "Adds Grok Aurora from xAI (the company behind Grok). Produces creative, unique visuals with a distinct artistic style. Good for standing out.",
+      required: false,
+      steps: [
+        "Go to console.x.ai and sign in with your X (Twitter) account.",
+        "Navigate to \"API Keys\" and create a new key. Copy it.",
+        "In your Vercel project → Settings → Environment Variables.",
+        "Add: XAI_API_KEY = <paste your key>.",
+        "Redeploy. Grok Aurora will appear as a new model option in the Playground.",
+        "Cost: varies by usage tier. Check console.x.ai for current pricing.",
+      ],
+    },
+    // ─── Brand context ───
+    {
+      ok: cortexOk,
+      label: "Connect your brand (Cortex MCP)",
+      description: "This is what makes Orbit special. Without it, you get generic images. With it, every image automatically uses your brand colors, voice, audience, and proof points.",
+      required: false,
+      steps: [
+        "Ask your Cortex admin for your brand's API endpoint URL (looks like https://yourcompany.apexure.com).",
         "In Vercel env vars, add: CORTEX_BASE_URL = <the URL you were given>.",
-        "Redeploy. Images will now be tailored to your brand.",
+        "Redeploy. All generated images will now be tailored to your brand automatically.",
+        "Tip: You can also set DEFAULT_BRAND = <your-brand-name> to skip selecting it each time.",
+      ],
+    },
+    // ─── Infrastructure ───
+    {
+      ok: config.redisConfigured,
+      label: "Enable API keys & async mode (Redis)",
+      description: "Lets you create separate API keys per app, rate-limit them individually, and enable background image generation so apps don't wait 20+ seconds.",
+      required: false,
+      steps: [
+        "Go to upstash.com and sign up (free tier: 10,000 requests/day).",
+        "Click \"Create Database\" → choose Redis → pick a region close to your users.",
+        "Copy the REST URL and REST Token from the database page.",
+        "In Vercel env vars, add: KV_REST_API_URL = <REST URL> and KV_REST_API_TOKEN = <REST Token>.",
+        "Redeploy. You can now create per-app API keys from the Apps tab.",
       ],
     },
     {
       ok: config.blobConfigured,
-      label: "Enable image URLs",
-      description: "Instead of returning raw image data (which is huge and slow), Orbit uploads each image and returns a clean URL. Apps and browsers can display these instantly.",
+      label: "Enable image URLs (Vercel Blob)",
+      description: "Instead of sending huge base64 data, Orbit uploads images and returns a clean URL. Much faster for apps to display.",
       required: false,
       steps: [
-        "In Vercel: go to Storage → click Create → choose Blob Store.",
-        "Give it any name (e.g. \"orbit-images\") and create it.",
-        "In the store settings, copy the BLOB_READ_WRITE_TOKEN value.",
-        "Add it to your project's Environment Variables with that exact name.",
-        "Redeploy.",
-      ],
-    },
-    {
-      ok: config.redisConfigured,
-      label: "Enable per-app API keys",
-      description: "This lets you create separate access keys for each app you connect. It also enables background (async) image generation — so apps don't have to wait 20 seconds for a response.",
-      required: false,
-      steps: [
-        "Go to upstash.com and sign up for a free account.",
-        "Click \"Create Database\" → choose Redis → pick any region close to you.",
-        "Once created, copy the REST URL and REST Token from the database page.",
-        "In Vercel env vars, add: KV_REST_API_URL = <REST URL> and KV_REST_API_TOKEN = <REST Token>.",
-        "Redeploy.",
-      ],
-    },
-    {
-      ok: config.webhookConfigured,
-      label: "Enable automatic image delivery",
-      description: "When an image is ready, Orbit can push it directly to your app — no waiting or checking. Think of it like a notification: \"Your image is done, here it is.\"",
-      required: false,
-      steps: [
-        "You need a random secret password that only Orbit and your app know about.",
-        "Generate one by running this command in your terminal: openssl rand -hex 32",
-        "In Vercel env vars, add: WEBHOOK_SECRET = <the value you generated>.",
-        "Share the same secret with your developer so they can verify webhook payloads.",
-        "Redeploy.",
+        "In Vercel: go to Storage → Create → Blob Store.",
+        "Name it anything (e.g. \"orbit-images\") and create.",
+        "Copy the BLOB_READ_WRITE_TOKEN from the store settings.",
+        "Add it to your Vercel Environment Variables.",
+        "Redeploy. Images will now be served as fast CDN URLs.",
       ],
     },
     {
       ok: config.postgresConfigured,
-      label: "Enable usage tracking",
-      description: "See how many images each connected app has generated and how much it's cost. Useful for understanding usage patterns and setting budgets.",
+      label: "Enable usage tracking (Postgres)",
+      description: "Track how many images each app generates and what it costs. Useful for budgets, billing, and understanding usage patterns.",
       required: false,
       steps: [
-        "In Vercel: go to Storage → click Create → choose Postgres.",
-        "Give it any name and create it.",
-        "Copy the POSTGRES_URL (connection string) from the database settings.",
-        "In Vercel env vars, add: POSTGRES_URL = <connection string>.",
-        "Redeploy — the database tables are created automatically on first use.",
+        "In Vercel: go to Storage → Create → Postgres.",
+        "Name it anything and create. Tables are set up automatically on first use.",
+        "Copy the POSTGRES_URL connection string.",
+        "Add to Vercel env vars: POSTGRES_URL = <connection string>.",
+        "Redeploy. Usage data will start appearing in the Usage tab.",
+      ],
+    },
+    {
+      ok: config.webhookConfigured,
+      label: "Enable webhooks (auto-delivery)",
+      description: "When an image is ready, Orbit pushes it to your app automatically — no polling needed. Like a notification: \"Your image is done, here it is.\"",
+      required: false,
+      steps: [
+        "Generate a secret: run openssl rand -hex 32 in your terminal, or use any password generator.",
+        "In Vercel env vars, add: WEBHOOK_SECRET = <your generated secret>.",
+        "Share the same secret with your developer to verify webhook payloads.",
+        "Redeploy. Apps can now receive images via webhook callbacks.",
       ],
     },
   ];

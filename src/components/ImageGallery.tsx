@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { MODEL_CATALOG, type ModelId } from "@/lib/providers/models";
+import { estimateCost } from "@/lib/usage/cost";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import styles from "./ImageGallery.module.css";
 
 interface GeneratedImage {
@@ -16,6 +19,9 @@ interface ImageGalleryProps {
   readonly processingTimeMs: number;
   readonly cortexDataCached: boolean;
   readonly resultCached: boolean;
+  readonly model?: string;
+  readonly quality?: string;
+  readonly count?: number;
 }
 
 export function ImageGallery({
@@ -24,10 +30,14 @@ export function ImageGallery({
   processingTimeMs,
   cortexDataCached,
   resultCached,
+  model,
+  quality = "hd",
+  count = 1,
 }: ImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const handleCopyPrompt = useCallback((prompt: string) => {
     navigator.clipboard.writeText(prompt).then(() => {
@@ -47,12 +57,24 @@ export function ImageGallery({
     link.click();
   };
 
+  const modelEntry = model ? MODEL_CATALOG[model as ModelId] : null;
+  const costEstimate = model ? estimateCost(count, quality, model) : null;
+
   return (
     <div className={styles.gallery}>
       {/* Meta bar */}
       <div className={styles.metaBar}>
         <div className={styles.metaLeft}>
           <span className={styles.badge}>{brand}</span>
+          {modelEntry && (
+            <span className={styles.modelBadge}>
+              <span
+                className={styles.modelDot}
+                style={{ backgroundColor: `var(--provider-${modelEntry.provider})` }}
+              />
+              {modelEntry.displayName}
+            </span>
+          )}
           <span className={styles.metaStat}>
             {images.length} image{images.length > 1 ? "s" : ""}
           </span>
@@ -60,6 +82,12 @@ export function ImageGallery({
           <span className={styles.metaStat}>
             {(processingTimeMs / 1000).toFixed(1)}s
           </span>
+          {costEstimate !== null && (
+            <>
+              <span className={styles.metaDot} />
+              <span className={styles.costBadge}>~${costEstimate.toFixed(3)}</span>
+            </>
+          )}
           {cortexDataCached && (
             <span className={styles.cacheBadge}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
@@ -82,6 +110,8 @@ export function ImageGallery({
           alt={`Generated image for ${brand}`}
           width={selected.dimensions.width}
           height={selected.dimensions.height}
+          onClick={() => setLightboxOpen(true)}
+          style={{ cursor: "pointer" }}
         />
         <div className={styles.imageOverlay}>
           <span className={styles.dimensionsBadge}>
@@ -106,7 +136,7 @@ export function ImageGallery({
         </div>
       </div>
 
-      {/* Prompt display — always visible */}
+      {/* Prompt display */}
       <div className={styles.promptBox}>
         <div className={styles.promptHeader}>
           <p className={styles.promptLabel}>Generated Prompt</p>
@@ -185,6 +215,17 @@ export function ImageGallery({
             Download All ({images.length})
           </button>
         </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxOpen && (
+        <ImageLightbox
+          images={images}
+          initialIndex={selectedIndex}
+          brand={brand}
+          onClose={() => setLightboxOpen(false)}
+          onDownload={handleDownload}
+        />
       )}
     </div>
   );

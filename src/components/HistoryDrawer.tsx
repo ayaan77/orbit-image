@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { MODEL_CATALOG, type ModelId } from "@/lib/providers/models";
 import styles from "./HistoryDrawer.module.css";
 
 interface GeneratedImage {
@@ -21,6 +22,9 @@ export interface HistoryEntry {
   readonly cortexDataCached: boolean;
   readonly resultCached: boolean;
   readonly generatedAt: number;
+  readonly model?: string;
+  readonly style?: string;
+  readonly estimatedCostUsd?: number;
 }
 
 interface HistoryDrawerProps {
@@ -28,15 +32,24 @@ interface HistoryDrawerProps {
   readonly entries: readonly HistoryEntry[];
   readonly onClose: () => void;
   readonly onRestore: (entry: HistoryEntry) => void;
+  readonly onRerun?: (entry: HistoryEntry, overrides?: { model?: string }) => void;
 }
+
+type FilterKey = "model" | "brand" | "purpose";
 
 export function HistoryDrawer({
   isOpen,
   entries,
   onClose,
   onRestore,
+  onRerun,
 }: HistoryDrawerProps) {
   const [mounted, setMounted] = useState(false);
+  const [filters, setFilters] = useState<Record<FilterKey, string>>({
+    model: "",
+    brand: "",
+    purpose: "",
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -51,18 +64,44 @@ export function HistoryDrawer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [isOpen, onClose]);
 
+  // Derive unique filter values from entries
+  const filterOptions = useMemo(() => ({
+    model: [...new Set(entries.map((e) => e.model).filter(Boolean))] as string[],
+    brand: [...new Set(entries.map((e) => e.brand).filter(Boolean))],
+    purpose: [...new Set(entries.map((e) => e.purpose).filter(Boolean))],
+  }), [entries]);
+
+  const filteredEntries = useMemo(() =>
+    entries.filter((e) => {
+      if (filters.model && e.model !== filters.model) return false;
+      if (filters.brand && e.brand !== filters.brand) return false;
+      if (filters.purpose && e.purpose !== filters.purpose) return false;
+      return true;
+    }),
+    [entries, filters]
+  );
+
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+
+  const toggleFilter = (key: FilterKey, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: prev[key] === value ? "" : value,
+    }));
+  };
+
+  const clearFilters = () => setFilters({ model: "", brand: "", purpose: "" });
+
   if (!mounted) return null;
 
   return createPortal(
     <>
-      {/* Backdrop */}
       <div
         className={`${styles.backdrop} ${isOpen ? styles.backdropVisible : ""}`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Drawer */}
       <div
         className={`${styles.drawer} ${isOpen ? styles.drawerOpen : ""}`}
         role="dialog"
@@ -101,8 +140,49 @@ export function HistoryDrawer({
           </button>
         </div>
 
+        {/* Filters */}
+        {entries.length > 0 && (
+          <div className={styles.filterBar}>
+            {filterOptions.model.length > 1 && filterOptions.model.map((m) => {
+              const entry = MODEL_CATALOG[m as ModelId];
+              return (
+                <button
+                  key={m}
+                  className={`${styles.filterChip} ${filters.model === m ? styles.filterChipActive : ""}`}
+                  onClick={() => toggleFilter("model", m)}
+                >
+                  {entry?.displayName ?? m}
+                </button>
+              );
+            })}
+            {filterOptions.brand.length > 1 && filterOptions.brand.map((b) => (
+              <button
+                key={b}
+                className={`${styles.filterChip} ${filters.brand === b ? styles.filterChipActive : ""}`}
+                onClick={() => toggleFilter("brand", b)}
+              >
+                {b}
+              </button>
+            ))}
+            {filterOptions.purpose.length > 1 && filterOptions.purpose.map((p) => (
+              <button
+                key={p}
+                className={`${styles.filterChip} ${filters.purpose === p ? styles.filterChipActive : ""}`}
+                onClick={() => toggleFilter("purpose", p)}
+              >
+                {p}
+              </button>
+            ))}
+            {hasActiveFilters && (
+              <button className={styles.clearFilters} onClick={clearFilters}>
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         <div className={styles.drawerBody}>
-          {entries.length === 0 ? (
+          {filteredEntries.length === 0 ? (
             <div className={styles.empty}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className={styles.emptyIcon}>
                 <path
@@ -113,16 +193,21 @@ export function HistoryDrawer({
                   strokeLinejoin="round"
                 />
               </svg>
-              <p className={styles.emptyText}>No generations yet.</p>
+              <p className={styles.emptyText}>
+                {hasActiveFilters ? "No matching entries." : "No generations yet."}
+              </p>
               <p className={styles.emptyHint}>
-                Generated images will appear here — up to 20 entries.
+                {hasActiveFilters
+                  ? "Try adjusting your filters."
+                  : "Generated images will appear here — up to 20 entries."}
               </p>
             </div>
           ) : (
             <ul className={styles.entryList}>
-              {entries.map((entry) => {
+              {filteredEntries.map((entry) => {
                 const firstImage = entry.images[0];
                 const timeAgo = formatTimeAgo(entry.generatedAt);
+                const modelEntry = entry.model ? MODEL_CATALOG[entry.model as ModelId] : null;
                 return (
                   <li key={entry.id} className={styles.entry}>
                     {firstImage && (
@@ -145,19 +230,50 @@ export function HistoryDrawer({
                         <span className={styles.entryBrand}>{entry.brand}</span>
                         <span className={styles.entryDot} />
                         <span className={styles.entryDetail}>{entry.purpose}</span>
+                        {modelEntry && (
+                          <>
+                            <span className={styles.entryDot} />
+                            <span className={styles.entryModel}>
+                              <span
+                                className={styles.modelDotSmall}
+                                style={{ backgroundColor: `var(--provider-${modelEntry.provider})` }}
+                              />
+                              {modelEntry.displayName}
+                            </span>
+                          </>
+                        )}
+                        {entry.estimatedCostUsd != null && (
+                          <>
+                            <span className={styles.entryDot} />
+                            <span className={styles.entryCost}>${entry.estimatedCostUsd.toFixed(3)}</span>
+                          </>
+                        )}
                         <span className={styles.entryDot} />
                         <span className={styles.entryDetail}>{timeAgo}</span>
                       </div>
                     </div>
-                    <button
-                      className={styles.restoreBtn}
-                      onClick={() => {
-                        onRestore(entry);
-                        onClose();
-                      }}
-                    >
-                      Restore
-                    </button>
+                    <div className={styles.entryActions}>
+                      <button
+                        className={styles.restoreBtn}
+                        onClick={() => {
+                          onRestore(entry);
+                          onClose();
+                        }}
+                      >
+                        Restore
+                      </button>
+                      {onRerun && (
+                        <button
+                          className={styles.rerunBtn}
+                          onClick={() => {
+                            onRerun(entry);
+                            onClose();
+                          }}
+                        >
+                          Re-run
+                        </button>
+                      )}
+                    </div>
                   </li>
                 );
               })}

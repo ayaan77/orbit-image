@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
 import { GeneratorForm } from "@/components/GeneratorForm";
 import { ImageGallery } from "@/components/ImageGallery";
@@ -9,9 +9,15 @@ import { SettingsModal } from "@/components/SettingsModal";
 import { ApiKeyGate } from "@/components/ApiKeyGate";
 import { Dashboard } from "@/components/Dashboard";
 import { HistoryDrawer, type HistoryEntry } from "@/components/HistoryDrawer";
+import { ConnectWizard } from "@/components/ConnectWizard";
+import { useProviderStatus } from "@/lib/client/useProviderStatus";
+import { estimateCost } from "@/lib/usage/cost";
 import { getApiKey, hasApiKey, getIsAdmin, detectAdmin } from "@/lib/client/storage";
 import type { GenerateRequest } from "@/types/api";
 import styles from "./page.module.css";
+
+const HISTORY_KEY = "orbit-history";
+const MAX_HISTORY = 20;
 
 interface GeneratedImage {
   readonly base64: string;
@@ -26,6 +32,9 @@ interface GenerateResult {
   readonly processingTimeMs: number;
   readonly cortexDataCached: boolean;
   readonly resultCached: boolean;
+  readonly model?: string;
+  readonly quality?: string;
+  readonly count?: number;
 }
 
 type AppState =
@@ -33,6 +42,24 @@ type AppState =
   | { readonly status: "loading" }
   | { readonly status: "success"; readonly result: GenerateResult }
   | { readonly status: "error"; readonly message: string };
+
+function loadHistory(): readonly HistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: readonly HistoryEntry[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+  } catch {
+    // localStorage full — silently ignore
+  }
+}
 
 export default function Home() {
   return (
@@ -49,13 +76,26 @@ function HomeContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<readonly HistoryEntry[]>([]);
+  const [showWizard, setShowWizard] = useState(false);
   const { showToast } = useToast();
+  const { status: providerStatus, refresh: refreshProviders } = useProviderStatus();
+  const lastRequestRef = useRef<GenerateRequest | null>(null);
 
   // Hydration-safe: read localStorage only on the client
   useEffect(() => {
     setApiKeyPresent(hasApiKey());
     setIsAdmin(getIsAdmin());
+    setHistory(loadHistory());
   }, []);
+
+  // Wizard removed — Dashboard's built-in SetupChecklist handles onboarding
+  useEffect(() => {
+    if (isAdmin && typeof window !== "undefined") {
+      // Mark wizard as complete so it never blocks
+      localStorage.setItem("orbit-wizard-complete", "true");
+      setShowWizard(false);
+    }
+  }, [isAdmin]);
 
   // Detect admin status when API key is present
   useEffect(() => {
@@ -66,6 +106,11 @@ function HomeContent() {
     }
   }, [apiKeyPresent]);
 
+  // Persist history whenever it changes
+  useEffect(() => {
+    if (history.length > 0) saveHistory(history);
+  }, [history]);
+
   const handleRestore = useCallback((entry: HistoryEntry) => {
     setState({
       status: "success",
@@ -75,6 +120,7 @@ function HomeContent() {
         processingTimeMs: entry.processingTimeMs,
         cortexDataCached: entry.cortexDataCached,
         resultCached: entry.resultCached,
+        model: entry.model,
       },
     });
   }, []);
@@ -87,6 +133,7 @@ function HomeContent() {
         return;
       }
 
+      lastRequestRef.current = data;
       setState({ status: "loading" });
 
       try {
@@ -114,6 +161,9 @@ function HomeContent() {
           processingTimeMs: json.metadata.processingTimeMs,
           cortexDataCached: json.metadata.cortexDataCached ?? false,
           resultCached: json.metadata.resultCached ?? false,
+          model: json.metadata.model ?? data.model,
+          quality: data.quality,
+          count: data.count,
         };
 
         setState({ status: "success", result });
@@ -129,8 +179,11 @@ function HomeContent() {
           cortexDataCached: result.cortexDataCached,
           resultCached: result.resultCached,
           generatedAt: Date.now(),
+          model: data.model,
+          style: data.style,
+          estimatedCostUsd: estimateCost(data.count, data.quality, data.model),
         };
-        setHistory((prev) => [entry, ...prev].slice(0, 20));
+        setHistory((prev) => [entry, ...prev].slice(0, MAX_HISTORY));
       } catch (err) {
         setState({
           status: "error",
@@ -144,16 +197,34 @@ function HomeContent() {
     [showToast],
   );
 
+  const handleRerun = useCallback(
+    (entry: HistoryEntry, overrides?: { model?: string }) => {
+      const data: GenerateRequest = {
+        topic: entry.topic,
+        purpose: entry.purpose as GenerateRequest["purpose"],
+        count: 1,
+        quality: "hd",
+        output_format: "base64",
+        ...(entry.brand ? { brand: entry.brand } : {}),
+        ...(entry.style ? { style: entry.style as GenerateRequest["style"] } : {}),
+        ...(overrides?.model ? { model: overrides.model as GenerateRequest["model"] } : entry.model ? { model: entry.model as GenerateRequest["model"] } : {}),
+      };
+      handleGenerate(data);
+    },
+    [handleGenerate],
+  );
+
   const handleSettingsClose = useCallback(() => {
     setSettingsOpen(false);
     const keyPresent = hasApiKey();
     setApiKeyPresent(keyPresent);
     if (keyPresent) {
       detectAdmin().then(setIsAdmin);
+      refreshProviders();
     } else {
       setIsAdmin(false);
     }
-  }, []);
+  }, [refreshProviders]);
 
   return (
     <>
@@ -161,6 +232,8 @@ function HomeContent() {
         onSettingsClick={() => setSettingsOpen(true)}
         onHistoryClick={() => setHistoryOpen(true)}
         historyCount={history.length}
+        showStudioLink
+        providerStatus={providerStatus}
       />
 
       {apiKeyPresent ? (
@@ -175,6 +248,7 @@ function HomeContent() {
                   <GeneratorForm
                     onSubmit={handleGenerate}
                     isLoading={state.status === "loading"}
+                    providerStatus={providerStatus}
                   />
                 </div>
               </section>
@@ -196,6 +270,9 @@ function HomeContent() {
                     processingTimeMs={state.result.processingTimeMs}
                     cortexDataCached={state.result.cortexDataCached}
                     resultCached={state.result.resultCached}
+                    model={state.result.model}
+                    quality={state.result.quality}
+                    count={state.result.count}
                   />
                 )}
               </section>
@@ -212,6 +289,7 @@ function HomeContent() {
         entries={history}
         onClose={() => setHistoryOpen(false)}
         onRestore={handleRestore}
+        onRerun={handleRerun}
       />
     </>
   );
@@ -253,7 +331,7 @@ function EmptyState() {
           <p className={styles.howStepTitle}>Describe</p>
           <p className={styles.howStepText}>Write what you want to visualize</p>
         </div>
-        <div className={styles.howStepArrow}>→</div>
+        <div className={styles.howStepArrow}>&rarr;</div>
         <div className={styles.howStep}>
           <div className={styles.howStepIcon}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -264,9 +342,9 @@ function EmptyState() {
             </svg>
           </div>
           <p className={styles.howStepTitle}>Pick a purpose</p>
-          <p className={styles.howStepText}>Blog hero, ad creative, icon…</p>
+          <p className={styles.howStepText}>Blog hero, ad creative, icon&hellip;</p>
         </div>
-        <div className={styles.howStepArrow}>→</div>
+        <div className={styles.howStepArrow}>&rarr;</div>
         <div className={styles.howStep}>
           <div className={styles.howStepIcon}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">

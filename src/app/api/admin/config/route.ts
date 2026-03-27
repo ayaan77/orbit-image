@@ -16,6 +16,7 @@ interface ConfigResponse {
   readonly webhookConfigured: boolean;
   readonly activeProvider: string;
   readonly replicateConfigured: boolean;
+  readonly xaiConfigured: boolean;
   readonly activeModel: string;
 }
 
@@ -39,6 +40,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       webhookConfigured: Boolean(env.WEBHOOK_SECRET),
       activeProvider: env.DEFAULT_PROVIDER,
       replicateConfigured: Boolean(env.REPLICATE_API_TOKEN),
+      xaiConfigured: Boolean(env.XAI_API_KEY),
       activeModel: env.DEFAULT_PROVIDER === "replicate"
         ? env.REPLICATE_MODEL
         : "gpt-image-1",
