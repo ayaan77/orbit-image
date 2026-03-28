@@ -100,8 +100,12 @@ interface SetupConfig {
   readonly xaiConfigured: boolean;
 }
 
-export function Dashboard() {
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+const VALID_TABS: ReadonlySet<string> = new Set<TabId>(["overview", "apps", "playground", "usage", "quickstart"]);
+
+export function Dashboard({ initialTab }: { readonly initialTab?: string } = {}) {
+  const [activeTab, setActiveTab] = useState<TabId>(
+    initialTab && VALID_TABS.has(initialTab) ? (initialTab as TabId) : "overview"
+  );
 
   return (
     <div className={styles.dashboard}>
