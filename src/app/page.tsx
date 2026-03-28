@@ -7,12 +7,10 @@ import { ImageGallery } from "@/components/ImageGallery";
 import { ToastProvider, useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
 import { ApiKeyGate } from "@/components/ApiKeyGate";
-import { Dashboard } from "@/components/Dashboard";
 import { HistoryDrawer, type HistoryEntry } from "@/components/HistoryDrawer";
-import { ConnectWizard } from "@/components/ConnectWizard";
 import { useProviderStatus } from "@/lib/client/useProviderStatus";
 import { estimateCost } from "@/lib/usage/cost";
-import { getApiKey, hasApiKey, getIsAdmin, detectAdmin } from "@/lib/client/storage";
+import { getApiKey, hasApiKey } from "@/lib/client/storage";
 import type { GenerateRequest } from "@/types/api";
 import styles from "./page.module.css";
 
@@ -72,11 +70,9 @@ export default function Home() {
 function HomeContent() {
   const [state, setState] = useState<AppState>({ status: "idle" });
   const [apiKeyPresent, setApiKeyPresent] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<readonly HistoryEntry[]>([]);
-  const [showWizard, setShowWizard] = useState(false);
   const { showToast } = useToast();
   const { status: providerStatus, refresh: refreshProviders } = useProviderStatus();
   const lastRequestRef = useRef<GenerateRequest | null>(null);
@@ -84,27 +80,8 @@ function HomeContent() {
   // Hydration-safe: read localStorage only on the client
   useEffect(() => {
     setApiKeyPresent(hasApiKey());
-    setIsAdmin(getIsAdmin());
     setHistory(loadHistory());
   }, []);
-
-  // Wizard removed — Dashboard's built-in SetupChecklist handles onboarding
-  useEffect(() => {
-    if (isAdmin && typeof window !== "undefined") {
-      // Mark wizard as complete so it never blocks
-      localStorage.setItem("orbit-wizard-complete", "true");
-      setShowWizard(false);
-    }
-  }, [isAdmin]);
-
-  // Detect admin status when API key is present
-  useEffect(() => {
-    if (apiKeyPresent) {
-      detectAdmin().then(setIsAdmin);
-    } else {
-      setIsAdmin(false);
-    }
-  }, [apiKeyPresent]);
 
   // Persist history whenever it changes
   useEffect(() => {
@@ -219,10 +196,7 @@ function HomeContent() {
     const keyPresent = hasApiKey();
     setApiKeyPresent(keyPresent);
     if (keyPresent) {
-      detectAdmin().then(setIsAdmin);
       refreshProviders();
-    } else {
-      setIsAdmin(false);
     }
   }, [refreshProviders]);
 
@@ -237,48 +211,44 @@ function HomeContent() {
       />
 
       {apiKeyPresent ? (
-        isAdmin ? (
-          <Dashboard />
-        ) : (
-          <main className={styles.main}>
-            <div className={styles.container}>
-              {/* Left: Form */}
-              <section className={styles.formPanel}>
-                <div className={styles.card}>
-                  <GeneratorForm
-                    onSubmit={handleGenerate}
-                    isLoading={state.status === "loading"}
-                    providerStatus={providerStatus}
-                  />
-                </div>
-              </section>
+        <main className={styles.main}>
+          <div className={styles.container}>
+            {/* Left: Form */}
+            <section className={styles.formPanel}>
+              <div className={styles.card}>
+                <GeneratorForm
+                  onSubmit={handleGenerate}
+                  isLoading={state.status === "loading"}
+                  providerStatus={providerStatus}
+                />
+              </div>
+            </section>
 
-              {/* Right: Results */}
-              <section className={styles.resultPanel}>
-                {state.status === "idle" && <EmptyState />}
-                {state.status === "loading" && <LoadingState />}
-                {state.status === "error" && (
-                  <ErrorState
-                    message={state.message}
-                    onDismiss={() => setState({ status: "idle" })}
-                  />
-                )}
-                {state.status === "success" && (
-                  <ImageGallery
-                    images={state.result.images}
-                    brand={state.result.brand}
-                    processingTimeMs={state.result.processingTimeMs}
-                    cortexDataCached={state.result.cortexDataCached}
-                    resultCached={state.result.resultCached}
-                    model={state.result.model}
-                    quality={state.result.quality}
-                    count={state.result.count}
-                  />
-                )}
-              </section>
-            </div>
-          </main>
-        )
+            {/* Right: Results */}
+            <section className={styles.resultPanel}>
+              {state.status === "idle" && <EmptyState />}
+              {state.status === "loading" && <LoadingState />}
+              {state.status === "error" && (
+                <ErrorState
+                  message={state.message}
+                  onDismiss={() => setState({ status: "idle" })}
+                />
+              )}
+              {state.status === "success" && (
+                <ImageGallery
+                  images={state.result.images}
+                  brand={state.result.brand}
+                  processingTimeMs={state.result.processingTimeMs}
+                  cortexDataCached={state.result.cortexDataCached}
+                  resultCached={state.result.resultCached}
+                  model={state.result.model}
+                  quality={state.result.quality}
+                  count={state.result.count}
+                />
+              )}
+            </section>
+          </div>
+        </main>
       ) : (
         <ApiKeyGate onKeySet={() => setApiKeyPresent(true)} />
       )}
