@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import { MODEL_CATALOG, DEFAULT_MODEL, type ModelId } from "@/lib/providers/models";
 import styles from "./ConnectWizard.module.css";
 
@@ -69,12 +69,7 @@ export function ConnectWizard({ onComplete, onClose }: ConnectWizardProps) {
 
   // Fetch provider status on mount
   useEffect(() => {
-    const key = getApiKey();
-    if (!key) return;
-
-    fetch("/api/providers/status", {
-      headers: { Authorization: `Bearer ${key}` },
-    })
+    apiFetch("/api/providers/status")
       .then((r) => r.json())
       .then((data) => {
         if (data.providers) {
@@ -88,9 +83,7 @@ export function ConnectWizard({ onComplete, onClose }: ConnectWizardProps) {
       .catch(() => {});
 
     // Fetch brands
-    fetch("/api/brands", {
-      headers: { Authorization: `Bearer ${key}` },
-    })
+    apiFetch("/api/brands")
       .then((r) => r.json())
       .then((data) => {
         if (data.brands) {
@@ -107,10 +100,7 @@ export function ConnectWizard({ onComplete, onClose }: ConnectWizardProps) {
     }));
 
     try {
-      const key = getApiKey();
-      const res = await fetch("/api/health", {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch("/api/health");
       const data = await res.json();
       const healthy = data.status === "healthy" || data.status === "degraded";
       setProviderStatus((prev) => ({

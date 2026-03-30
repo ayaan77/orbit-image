@@ -7,6 +7,7 @@ interface HeaderProps {
   readonly onHistoryClick?: () => void;
   readonly historyCount?: number;
   readonly showStudioLink?: boolean;
+  readonly showAdminLink?: boolean;
   readonly providerStatus?: ProviderStatus | null;
 }
 
@@ -21,6 +22,7 @@ export function Header({
   onHistoryClick,
   historyCount = 0,
   showStudioLink,
+  showAdminLink,
   providerStatus,
 }: HeaderProps) {
   return (
@@ -77,6 +79,11 @@ export function Header({
           </div>
         </div>
         <div className={styles.rightGroup}>
+          {showAdminLink && (
+            <Link href="/admin" className={styles.studioLink}>
+              Admin
+            </Link>
+          )}
           {showStudioLink && (
             <Link href="/studio" className={styles.studioLink}>
               Try Studio

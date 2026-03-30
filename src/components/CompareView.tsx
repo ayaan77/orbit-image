@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { MODEL_CATALOG, MODEL_IDS, type ModelId } from "@/lib/providers/models";
 import { estimateCost } from "@/lib/usage/cost";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import type { ProviderStatus } from "@/lib/client/useProviderStatus";
 import styles from "./CompareView.module.css";
 
@@ -63,12 +63,8 @@ export function CompareView({
     setState({ status: "loading" });
 
     try {
-      const res = await fetch("/api/generate", {
+      const res = await apiFetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getApiKey()}`,
-        },
         body: JSON.stringify({
           topic,
           purpose,

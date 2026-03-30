@@ -1,53 +1,52 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { Dashboard } from "@/components/Dashboard";
 import { ToastProvider } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
-import { ApiKeyGate } from "@/components/ApiKeyGate";
-import { hasApiKey } from "@/lib/client/storage";
-import { useProviderStatus } from "@/lib/client/useProviderStatus";
+import { LoginForm } from "@/components/LoginForm";
+import { AuthProvider, useAuth } from "@/components/AuthProvider";
 
 export default function Home() {
   return (
     <ToastProvider>
-      <HomeContent />
+      <AuthProvider>
+        <HomeContent />
+      </AuthProvider>
     </ToastProvider>
   );
 }
 
 function HomeContent() {
-  const [apiKeyPresent, setApiKeyPresent] = useState(false);
+  const { user, loading, isAdmin } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { status: providerStatus, refresh: refreshProviders } = useProviderStatus();
-
-  useEffect(() => {
-    setApiKeyPresent(hasApiKey());
-  }, []);
 
   const handleSettingsClose = useCallback(() => {
     setSettingsOpen(false);
-    const keyPresent = hasApiKey();
-    setApiKeyPresent(keyPresent);
-    if (keyPresent) {
-      refreshProviders();
-    }
-  }, [refreshProviders]);
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm />;
+  }
 
   return (
     <>
       <Header
         onSettingsClick={() => setSettingsOpen(true)}
         showStudioLink
-        providerStatus={providerStatus}
+        showAdminLink={isAdmin}
       />
 
-      {apiKeyPresent ? (
-        <Dashboard />
-      ) : (
-        <ApiKeyGate onKeySet={() => setApiKeyPresent(true)} />
-      )}
+      <Dashboard />
 
       <SettingsModal isOpen={settingsOpen} onClose={handleSettingsClose} />
     </>

@@ -9,7 +9,7 @@ import type { AuthResult } from "@/lib/auth/types";
 export function authResultToResponse(
   result: AuthResult
 ): NextResponse<ErrorResponse> | null {
-  if (result.type === "master" || result.type === "client") {
+  if (result.type === "master" || result.type === "client" || result.type === "user") {
     return null;
   }
 

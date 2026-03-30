@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
 import { MODEL_CATALOG, MODEL_IDS, DEFAULT_MODEL, type ModelId } from "@/lib/providers/models";
 import { ImageGallery } from "./ImageGallery";
@@ -101,11 +101,6 @@ export function Playground() {
   );
 
   const handleSend = useCallback(async () => {
-    const key = getApiKey();
-    if (!key) {
-      showToast("Configure your API key first", "error");
-      return;
-    }
     if (!form.topic.trim()) {
       showToast("Topic is required", "error");
       return;
@@ -137,12 +132,8 @@ export function Playground() {
 
     const start = Date.now();
     try {
-      const res = await fetch("/api/generate", {
+      const res = await apiFetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -184,8 +175,6 @@ export function Playground() {
 
   const handlePollStatus = useCallback(async () => {
     if (!asyncJob) return;
-    const key = getApiKey();
-    if (!key) return;
 
     setJobPolling(true);
     let attempts = 0;
@@ -194,9 +183,7 @@ export function Playground() {
     const poll = async (): Promise<void> => {
       attempts++;
       try {
-        const res = await fetch(`/api/jobs/${asyncJob.jobId}`, {
-          headers: { Authorization: `Bearer ${key}` },
-        });
+        const res = await apiFetch(`/api/jobs/${asyncJob.jobId}`);
         const data = await res.json();
 
         if (data.status === "completed" && data.result?.images) {
@@ -235,8 +222,6 @@ export function Playground() {
   }, [asyncJob, showToast]);
 
   const handlePreview = useCallback(async () => {
-    const key = getApiKey();
-    if (!key) { showToast("Configure your API key first", "error"); return; }
     if (!form.topic.trim()) { showToast("Topic is required", "error"); return; }
 
     setPreviewLoading(true);
@@ -252,9 +237,8 @@ export function Playground() {
       if (form.style) body.style = form.style;
       if (form.persona.trim()) body.persona = form.persona.trim();
 
-      const res = await fetch("/api/admin/preview-prompt", {
+      const res = await apiFetch("/api/admin/preview-prompt", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify(body),
       });
       const data = await res.json();

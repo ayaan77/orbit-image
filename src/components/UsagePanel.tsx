@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, memo } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
 import styles from "./UsagePanel.module.css";
 
@@ -39,9 +39,6 @@ export function UsagePanel() {
   const limit = 25;
 
   const fetchUsage = useCallback(async () => {
-    const key = getApiKey();
-    if (!key) return;
-
     setLoading(true);
     setError(null);
 
@@ -52,9 +49,7 @@ export function UsagePanel() {
     params.set("offset", String(page * limit));
 
     try {
-      const res = await fetch(`/api/admin/usage?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch(`/api/admin/usage?${params.toString()}`);
       const json = await res.json();
       if (json.success) {
         setData(json);

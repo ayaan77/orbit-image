@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, memo } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
 import { CodeBlock } from "@/components/CodeBlock";
 import { getSyncSnippet, getAsyncSnippet } from "@/lib/client/snippets";
@@ -173,7 +173,7 @@ function ConnectWizard({ onClose, authHeaders, showToast }: ConnectWizardProps) 
       const body: Record<string, unknown> = { clientName: name.trim() };
       const rl = parseInt(rateLimit, 10);
       if (rateLimit && Number.isFinite(rl) && rl > 0) body.rateLimit = rl;
-      const res = await fetch("/api/admin/keys", { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
+      const res = await apiFetch("/api/admin/keys", { method: "POST", body: JSON.stringify(body) });
       const data = await res.json();
       if (data.success) {
         setApiKey(data.apiKey);
@@ -200,9 +200,8 @@ function ConnectWizard({ onClose, authHeaders, showToast }: ConnectWizardProps) 
     if (webhookUrl && clientId) {
       setSaving(true);
       try {
-        await fetch("/api/admin/keys", {
+        await apiFetch("/api/admin/keys", {
           method: "PATCH",
-          headers: authHeaders(),
           body: JSON.stringify({ clientId, defaultWebhookUrl: webhookUrl }),
         });
       } catch { /* non-fatal — user can add via Edit */ } finally {
@@ -386,15 +385,14 @@ export function AppsPanel() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const { showToast } = useToast();
 
-  const authHeaders = useCallback(() => {
-    const key = getApiKey();
-    return { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
+  const authHeaders = useCallback((): Record<string, string> => {
+    return { "Content-Type": "application/json" };
   }, []);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/keys", { headers: authHeaders() });
+      const res = await apiFetch("/api/admin/keys");
       const data = await res.json();
       if (data.success) {
         setClients(data.clients);
@@ -418,9 +416,7 @@ export function AppsPanel() {
 
     const results = await Promise.allSettled(
       active.map((c) =>
-        fetch(`/api/admin/usage?clientId=${c.clientId}&from=${from}`, {
-          headers: authHeaders(),
-        }).then((r) => r.json()),
+        apiFetch(`/api/admin/usage?clientId=${c.clientId}&from=${from}`).then((r) => r.json()),
       ),
     );
 
@@ -474,10 +470,8 @@ export function AppsPanel() {
   const handleRestore = useCallback(
     async (clientId: string, clientName: string) => {
       try {
-        const key = getApiKey();
-        const res = await fetch("/api/admin/keys", {
+        const res = await apiFetch("/api/admin/keys", {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
           body: JSON.stringify({ clientId, active: true }),
         });
         const data = await res.json();
@@ -497,9 +491,8 @@ export function AppsPanel() {
   const handleRevoke = useCallback(
     async (clientId: string, clientName: string) => {
       try {
-        const res = await fetch("/api/admin/keys", {
+        const res = await apiFetch("/api/admin/keys", {
           method: "DELETE",
-          headers: authHeaders(),
           body: JSON.stringify({ clientId }),
         });
         const data = await res.json();
@@ -519,9 +512,8 @@ export function AppsPanel() {
   const handleDelete = useCallback(
     async (clientId: string, clientName: string) => {
       try {
-        const res = await fetch("/api/admin/keys", {
+        const res = await apiFetch("/api/admin/keys", {
           method: "DELETE",
-          headers: authHeaders(),
           body: JSON.stringify({ clientId, permanent: true }),
         });
         const data = await res.json();
@@ -698,10 +690,7 @@ const ClientCard = memo(function ClientCard({
     setDeliveryLoading(true);
     setShowDeliveries(true);
     try {
-      const key = getApiKey();
-      const res = await fetch(`/api/admin/webhook-logs?clientId=${client.clientId}&limit=20`, {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch(`/api/admin/webhook-logs?clientId=${client.clientId}&limit=20`);
       const data = await res.json();
       if (data.success) setDeliveryLogs(data.logs);
       else if (data.error?.code === "NOT_CONFIGURED") setDeliveryLogs([]);
@@ -715,10 +704,8 @@ const ClientCard = memo(function ClientCard({
   const handleReplaceKey = useCallback(async () => {
     setReplacing(true);
     try {
-      const key = getApiKey();
-      const res = await fetch("/api/admin/replace-key", {
+      const res = await apiFetch("/api/admin/replace-key", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({ clientId: client.clientId }),
       });
       const data = await res.json();
@@ -736,10 +723,8 @@ const ClientCard = memo(function ClientCard({
     setTestStatus("sending");
     setTestMessage("");
     try {
-      const key = getApiKey();
-      const res = await fetch("/api/admin/test-webhook", {
+      const res = await apiFetch("/api/admin/test-webhook", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({ clientId: client.clientId }),
       });
       const data = await res.json();
@@ -760,7 +745,6 @@ const ClientCard = memo(function ClientCard({
   const handleSaveEdit = useCallback(async () => {
     setSaving(true);
     try {
-      const key = getApiKey();
       const body: Record<string, unknown> = { clientId: client.clientId };
       const rl = parseInt(editRateLimit, 10);
       body.rateLimit = editRateLimit && Number.isFinite(rl) && rl > 0 ? rl : 60;
@@ -768,9 +752,8 @@ const ClientCard = memo(function ClientCard({
       const budget = parseFloat(editBudget);
       body.monthlyBudgetUsd = editBudget && Number.isFinite(budget) && budget > 0 ? budget : null;
 
-      const res = await fetch("/api/admin/keys", {
+      const res = await apiFetch("/api/admin/keys", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify(body),
       });
       const data = await res.json();

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getApiKey, setApiKey, clearApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
 import styles from "./SettingsModal.module.css";
 
@@ -226,25 +227,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const lastTestRef = useRef<number>(0);
 
   const handleTestConnection = useCallback(async (force = false) => {
-    const key = getApiKey();
-    if (!key) {
-      showToast("Save an API key first", "error");
-      return;
-    }
     // Cache result for 30s unless forced
     if (!force && connection.state === "done" && Date.now() - lastTestRef.current < 30_000) {
       return;
     }
     setConnection({ state: "testing" });
     try {
-      const res = await fetch("/api/admin/services", {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch("/api/admin/services");
       if (!res.ok) {
         // Fall back to health endpoint for non-admin users
-        const healthRes = await fetch("/api/health", {
-          headers: { Authorization: `Bearer ${key}` },
-        });
+        const healthRes = await apiFetch("/api/health");
         const data = await healthRes.json();
         const fail: ServiceResult = { connected: false, error: "Not admin" };
         setConnection({
@@ -301,12 +293,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   );
 
   const fetchConfig = useCallback(async () => {
-    const key = getApiKey();
-    if (!key || serverConfig) return;
+    if (serverConfig) return;
     try {
-      const res = await fetch("/api/admin/config", {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch("/api/admin/config");
       if (res.ok) {
         setServerConfig(await res.json());
       }

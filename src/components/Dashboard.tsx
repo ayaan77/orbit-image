@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import styles from "./Dashboard.module.css";
 
 const AppsPanel = dynamic(() => import("@/components/AppsPanel").then(m => ({ default: m.AppsPanel })), {
@@ -152,17 +152,13 @@ function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    const key = getApiKey();
-    if (!key) return;
-    const authHeaders = { Authorization: `Bearer ${key}` };
-
     setLoading(true);
     try {
       const [usageRes, clientsRes, healthRes, configRes] = await Promise.allSettled([
-        fetch("/api/admin/usage?limit=1", { headers: authHeaders }),
-        fetch("/api/admin/keys", { headers: authHeaders }),
-        fetch("/api/health", { headers: authHeaders }),
-        fetch("/api/admin/config", { headers: authHeaders }),
+        apiFetch("/api/admin/usage?limit=1"),
+        apiFetch("/api/admin/keys"),
+        apiFetch("/api/health"),
+        apiFetch("/api/admin/config"),
       ]);
 
       let totalImages = 0;

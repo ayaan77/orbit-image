@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 
 interface ProviderInfo {
   readonly configured: boolean;
@@ -28,16 +28,8 @@ export function useProviderStatus(): UseProviderStatusResult {
   const [loading, setLoading] = useState(true);
 
   const fetchStatus = useCallback(async () => {
-    const key = getApiKey();
-    if (!key) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("/api/providers/status", {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch("/api/providers/status");
       if (res.ok) {
         const data = await res.json();
         setStatus(data);

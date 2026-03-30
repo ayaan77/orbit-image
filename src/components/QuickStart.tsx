@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
 import { CodeBlock } from "@/components/CodeBlock";
 import { getSyncSnippet, getAsyncSnippet, getVerifySnippet, getMcpSnippet } from "@/lib/client/snippets";
@@ -73,21 +73,13 @@ export function QuickStart() {
 
   const baseUrl =
     typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
-  const apiKey = getApiKey();
-  const opts = { baseUrl, apiKey };
+  const opts = { baseUrl, apiKey: "" };
 
   const handleTestCall = useCallback(async () => {
-    const key = getApiKey();
-    if (!key) {
-      showToast("Save an API key first in Settings", "error");
-      return;
-    }
     setTestLoading(true);
     setTestResult("idle");
     try {
-      const res = await fetch("/api/health", {
-        headers: { Authorization: `Bearer ${key}` },
-      });
+      const res = await apiFetch("/api/health");
       const data = await res.json();
       if (res.ok && data.status) {
         setTestResult("success");

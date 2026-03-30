@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getApiKey } from "@/lib/client/storage";
+import { apiFetch } from "@/lib/client/api";
 import styles from "./BrandPicker.module.css";
 
 interface Brand {
@@ -20,14 +20,7 @@ export function BrandPicker({ value, onChange }: BrandPickerProps) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const key = getApiKey();
-    if (!key) {
-      setLoading(false);
-      return;
-    }
-    fetch("/api/brands", {
-      headers: { Authorization: `Bearer ${key}` },
-    })
+    apiFetch("/api/brands")
       .then((r) => {
         if (!r.ok) throw new Error("Failed");
         return r.json();
@@ -66,9 +59,7 @@ export function BrandPicker({ value, onChange }: BrandPickerProps) {
             onClick={() => {
               setError(false);
               setLoading(true);
-              const key = getApiKey();
-              if (!key) { setLoading(false); return; }
-              fetch("/api/brands", { headers: { Authorization: `Bearer ${key}` } })
+              apiFetch("/api/brands")
                 .then((r) => { if (!r.ok) throw new Error("Failed"); return r.json(); })
                 .then((data) => { if (Array.isArray(data.brands)) setBrands(data.brands); })
                 .catch(() => setError(true))
