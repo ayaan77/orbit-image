@@ -187,29 +187,54 @@ export async function deleteClient(clientId: string): Promise<boolean> {
 
 /**
  * List registered clients (without raw keys).
+ * Uses HSCAN for memory-efficient cursor-based pagination instead of
+ * HGETALL which loads all entries into memory.
+ *
  * @param limit  Max clients to return (default 100, max 500).
- * @param offset Number of clients to skip for pagination.
+ * @param cursor Redis cursor for pagination (default "0" for first page).
+ * @returns Clients, approximate total (via HLEN), and next cursor.
  */
 export async function listClients(
   limit = 100,
-  offset = 0,
-): Promise<{ clients: ClientInfo[]; total: number }> {
+  cursor = "0",
+): Promise<{ clients: ClientInfo[]; total: number; nextCursor: string }> {
   const kv = getKv();
-  if (!kv) return { clients: [], total: 0 };
+  if (!kv) return { clients: [], total: 0, nextCursor: "0" };
 
-  const mapping = await kv.hgetall<Record<string, string>>(REDIS_CLIENTS_SET);
-  if (!mapping) return { clients: [], total: 0 };
+  const cappedLimit = Math.min(limit, 500);
+  const clients: ClientInfo[] = [];
+  let currentCursor = Number(cursor);
 
-  const allHashes = Object.values(mapping);
-  const total = allHashes.length;
-  const pageHashes = allHashes.slice(offset, offset + Math.min(limit, 500));
+  // Get total count efficiently via HLEN
+  const total = (await kv.hlen(REDIS_CLIENTS_SET)) ?? 0;
 
-  const results = await Promise.all(
-    pageHashes.map((hash) => kv.get<ClientInfo>(redisKey(hash))),
-  );
+  // Scan in batches until we have enough or exhausted the hash
+  do {
+    const result = await kv.hscan(REDIS_CLIENTS_SET, currentCursor, {
+      count: cappedLimit,
+    });
+    const [nextCursor, entries] = result;
+    currentCursor = Number(nextCursor);
+
+    // entries is [field, value, field, value, ...] — values are the hashes
+    const hashes: string[] = [];
+    for (let i = 1; i < entries.length; i += 2) {
+      hashes.push(entries[i] as string);
+    }
+
+    if (hashes.length > 0) {
+      const results = await Promise.all(
+        hashes.map((hash) => kv.get<ClientInfo>(redisKey(hash))),
+      );
+      clients.push(...results.filter((c): c is ClientInfo => c !== null));
+    }
+
+    if (clients.length >= cappedLimit) break;
+  } while (currentCursor !== 0);
 
   return {
-    clients: results.filter((c): c is ClientInfo => c !== null),
+    clients: clients.slice(0, cappedLimit),
     total,
+    nextCursor: String(currentCursor),
   };
 }

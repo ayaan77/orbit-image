@@ -3,18 +3,28 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/setup";
 import { cacheClear } from "@/lib/cortex/cache";
 
-// Mock OpenAI provider
+// Mock provider (resolveModel is used by handlers)
 vi.mock("@/lib/providers/factory", () => ({
-  getProvider: () => ({
-    name: "openai-mock",
-    generate: vi.fn().mockResolvedValue([
-      {
-        data: Buffer.from("fake-png-data"),
-        mimeType: "image/png",
-        prompt: "test prompt output",
-        dimensions: { width: 1024, height: 1024 },
-      },
-    ]),
+  resolveModel: () => ({
+    provider: {
+      name: "openai-mock",
+      generate: vi.fn().mockResolvedValue([
+        {
+          data: Buffer.from("fake-png-data"),
+          mimeType: "image/png",
+          prompt: "test prompt output",
+          dimensions: { width: 1024, height: 1024 },
+        },
+      ]),
+    },
+    internalModel: "mock-model",
+  }),
+}));
+
+// Mock concurrency queue (pass-through)
+vi.mock("@/lib/queue/concurrency-queue", () => ({
+  getGenerateQueue: () => ({
+    enqueue: <T>(fn: () => Promise<T>) => fn(),
   }),
 }));
 
@@ -28,7 +38,9 @@ vi.mock("@/lib/mcp/blob", () => ({
 
 const CORTEX_URL = "https://cortex.test.apexure.com/api/mcp";
 
-const { POST } = await import("@/app/api/mcp/route");
+// Use the legacy JSON-RPC endpoint for these tests.
+// The main /api/mcp route now uses Streamable HTTP transport (MCP SDK).
+const { POST } = await import("@/app/api/mcp/legacy/route");
 
 function makeJsonRpcRequest(
   method: string,
@@ -77,12 +89,14 @@ describe("POST /api/mcp", () => {
     expect(res.status).toBe(200);
     expect(data.jsonrpc).toBe("2.0");
     expect(data.id).toBe("test-1");
-    expect(data.result.tools).toHaveLength(3);
+    expect(data.result.tools).toHaveLength(5);
 
     const names = data.result.tools.map((t: { name: string }) => t.name);
     expect(names).toContain("generate-image");
     expect(names).toContain("list-styles");
     expect(names).toContain("list-purposes");
+    expect(names).toContain("list-brands");
+    expect(names).toContain("get-image");
   });
 
   // ─── 2. list-styles — no auth ───

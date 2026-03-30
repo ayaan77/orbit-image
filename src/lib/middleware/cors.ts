@@ -5,10 +5,27 @@ const ALLOWED_HEADERS = "Content-Type, Authorization, X-Request-Id";
 const MAX_AGE = "86400"; // 24 hours
 
 /**
+ * Explicit allowlist of origins. Loaded from CORS_ALLOWED_ORIGINS env var
+ * (comma-separated) with sensible defaults.
+ *
+ * Previously used wildcard *.apexure.com which allowed any subdomain,
+ * including forgotten staging sites or subdomain takeover attacks.
+ */
+const ALLOWED_ORIGINS: ReadonlySet<string> = new Set(
+  (
+    process.env.CORS_ALLOWED_ORIGINS ??
+    "https://app.apexure.com,https://studio.apexure.com,https://orbit.apexure.com,https://apexure.com"
+  )
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+/**
  * Determine if an origin is allowed.
  * - Always allows same-origin (no Origin header).
  * - Allows localhost in development.
- * - Checks against default allowlist.
+ * - Checks against explicit allowlist (not wildcard subdomains).
  */
 function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return true; // same-origin or non-browser
@@ -22,21 +39,7 @@ function isOriginAllowed(origin: string | null): boolean {
     return true;
   }
 
-  // Check wildcard subdomain match for apexure.com
-  try {
-    const url = new URL(origin);
-    if (
-      url.protocol === "https:" &&
-      (url.hostname === "apexure.com" ||
-        url.hostname.endsWith(".apexure.com"))
-    ) {
-      return true;
-    }
-  } catch {
-    // Invalid URL — deny
-  }
-
-  return false;
+  return ALLOWED_ORIGINS.has(origin);
 }
 
 /**

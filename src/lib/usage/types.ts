@@ -9,6 +9,6 @@ export interface UsageEntry {
   readonly estimatedCostUsd: number;
   readonly processingTimeMs: number;
   readonly cached: boolean;
-  readonly endpoint: "rest" | "mcp";
+  readonly endpoint: "rest" | "mcp" | "mcp-legacy";
   readonly timestamp: Date;
 }

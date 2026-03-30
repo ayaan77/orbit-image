@@ -8,16 +8,26 @@ import { INVALID_PARAMS, CORTEX_ERROR, PROVIDER_ERROR } from "@/lib/mcp/errors";
 
 // Mock provider
 vi.mock("@/lib/providers/factory", () => ({
-  getProvider: () => ({
-    name: "mock",
-    generate: vi.fn().mockResolvedValue([
-      {
-        data: Buffer.from("fake-image-data"),
-        mimeType: "image/png",
-        prompt: "test prompt",
-        dimensions: { width: 1024, height: 1024 },
-      },
-    ]),
+  resolveModel: () => ({
+    provider: {
+      name: "mock",
+      generate: vi.fn().mockResolvedValue([
+        {
+          data: Buffer.from("fake-image-data"),
+          mimeType: "image/png",
+          prompt: "test prompt",
+          dimensions: { width: 1024, height: 1024 },
+        },
+      ]),
+    },
+    internalModel: "mock-model",
+  }),
+}));
+
+// Mock concurrency queue (pass-through)
+vi.mock("@/lib/queue/concurrency-queue", () => ({
+  getGenerateQueue: () => ({
+    enqueue: <T>(fn: () => Promise<T>) => fn(),
   }),
 }));
 

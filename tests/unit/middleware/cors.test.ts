@@ -24,19 +24,24 @@ describe("corsHeaders", () => {
       expect(headers["Vary"]).toBe("Origin");
     });
 
-    it("allows *.apexure.com subdomains", () => {
-      const headers = corsHeaders(makeRequest("https://orbitimage.apexure.com"));
-      expect(headers["Access-Control-Allow-Origin"]).toBe("https://orbitimage.apexure.com");
+    it("allows origins in the explicit allowlist", () => {
+      const headers = corsHeaders(makeRequest("https://app.apexure.com"));
+      expect(headers["Access-Control-Allow-Origin"]).toBe("https://app.apexure.com");
     });
 
-    it("allows deep subdomains of apexure.com", () => {
-      const headers = corsHeaders(makeRequest("https://staging.app.apexure.com"));
-      expect(headers["Access-Control-Allow-Origin"]).toBe("https://staging.app.apexure.com");
+    it("allows studio.apexure.com from default allowlist", () => {
+      const headers = corsHeaders(makeRequest("https://studio.apexure.com"));
+      expect(headers["Access-Control-Allow-Origin"]).toBe("https://studio.apexure.com");
     });
 
-    it("allows cortex.apexure.com", () => {
-      const headers = corsHeaders(makeRequest("https://cortex.apexure.com"));
-      expect(headers["Access-Control-Allow-Origin"]).toBe("https://cortex.apexure.com");
+    it("allows orbit.apexure.com from default allowlist", () => {
+      const headers = corsHeaders(makeRequest("https://orbit.apexure.com"));
+      expect(headers["Access-Control-Allow-Origin"]).toBe("https://orbit.apexure.com");
+    });
+
+    it("blocks subdomains not in the explicit allowlist", () => {
+      const headers = corsHeaders(makeRequest("https://unknown.apexure.com"));
+      expect(headers).toEqual({});
     });
   });
 

@@ -6,14 +6,20 @@ import {
 } from "@/lib/mcp/tools";
 
 describe("getToolDefinitions", () => {
-  it("returns exactly 3 tools", () => {
+  it("returns exactly 5 tools", () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(3);
+    expect(tools).toHaveLength(5);
   });
 
-  it("includes generate-image, list-styles, list-purposes", () => {
+  it("includes all registered tools", () => {
     const names = getToolDefinitions().map((t) => t.name);
-    expect(names).toEqual(["generate-image", "list-styles", "list-purposes"]);
+    expect(names).toEqual([
+      "generate-image",
+      "list-styles",
+      "list-purposes",
+      "list-brands",
+      "get-image",
+    ]);
   });
 
   it("each tool has name, description, and inputSchema", () => {

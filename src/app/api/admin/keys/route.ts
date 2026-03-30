@@ -3,6 +3,7 @@ import { isMasterKey, unauthorizedResponse } from "@/lib/middleware/admin-auth";
 import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { createApiKey, revokeApiKey, listClients, updateClientInfo, deleteClient } from "@/lib/auth/keys";
 import { isPublicHttpsUrl } from "@/lib/validation/webhook-url";
+import { createLogger } from "@/lib/logging/logger";
 
 /**
  * Admin key management — protected by master key only.
@@ -62,7 +63,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       { headers },
     );
   } catch (error) {
-    console.error("[admin/keys] Create error:", error);
+    createLogger({ module: "admin-keys" }).error("Create API key failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to create API key. Is KV configured?" } },
       { status: 500, headers }
@@ -70,24 +73,26 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 }
 
-// GET /api/admin/keys — List clients (supports ?limit=&offset= for pagination)
+// GET /api/admin/keys — List clients (supports ?limit=&cursor= for cursor-based pagination)
 export async function GET(request: Request): Promise<NextResponse> {
   const headers = requestIdHeaders(getRequestId(request));
   if (!(await isMasterKey(request))) return unauthorizedResponse(headers);
 
   const url = new URL(request.url);
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 500);
-  const offset = Math.max(Number(url.searchParams.get("offset") ?? 0), 0);
+  const cursor = url.searchParams.get("cursor") ?? "0";
 
   try {
-    const { clients, total } = await listClients(limit, offset);
+    const { clients, total, nextCursor } = await listClients(limit, cursor);
 
     return NextResponse.json(
-      { success: true, clients, total, limit, offset },
+      { success: true, clients, total, limit, cursor, nextCursor },
       { headers },
     );
   } catch (error) {
-    console.error("[admin/keys] List error:", error);
+    createLogger({ module: "admin-keys" }).error("List clients error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to list clients" } },
       { status: 500, headers }
@@ -168,7 +173,9 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, client: updated }, { headers });
   } catch (error) {
-    console.error("[admin/keys] Update error:", error);
+    createLogger({ module: "admin-keys" }).error("Update client failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to update client" } },
       { status: 500, headers }
@@ -220,7 +227,9 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     }
     return NextResponse.json({ success: true, message: "Key revoked" }, { headers });
   } catch (error) {
-    console.error("[admin/keys] Delete/revoke error:", error);
+    createLogger({ module: "admin-keys" }).error("Delete/revoke client failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to delete key" } },
       { status: 500, headers }

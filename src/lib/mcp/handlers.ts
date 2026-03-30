@@ -4,9 +4,12 @@ import { ImagePurpose, ImageStyle } from "@/types/api";
 import { createCachedCortexClient } from "@/lib/cortex/cached-client";
 import { CortexError } from "@/lib/cortex/client";
 import { assemblePrompt } from "@/lib/prompt/engine";
-import { getProvider } from "@/lib/providers/factory";
+import { resolveModel } from "@/lib/providers/factory";
 import { ProviderError } from "@/lib/providers/types";
 import { getEnv } from "@/lib/config/env";
+import { getJob } from "@/lib/jobs/store";
+import { getGenerateQueue } from "@/lib/queue/concurrency-queue";
+import { createLogger } from "@/lib/logging/logger";
 import { uploadImageToBlob } from "./blob";
 import {
   buildSuccessResponse,
@@ -103,9 +106,13 @@ export async function handleGenerateImage(
       context
     );
 
-    // Generate images
-    const provider = getProvider();
-    const generatedImages = await provider.generate(promptBundle);
+    // Generate images (through concurrency queue with env-configured limits)
+    const { provider, internalModel } = resolveModel(params.model);
+    const env = getEnv();
+    const queue = getGenerateQueue(env.MAX_CONCURRENT_GENERATES, env.GENERATE_QUEUE_TIMEOUT_MS);
+    const generatedImages = await queue.enqueue(() =>
+      provider.generate(promptBundle, internalModel),
+    );
 
     // Build image results based on output format
     const images = await Promise.all(
@@ -184,7 +191,70 @@ export async function handleGenerateImage(
       );
     }
 
-    console.error("[mcp:generate-image] Unexpected error:", error);
+    createLogger({ module: "mcp" }).error("Unexpected error in generate-image", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return buildErrorResponse(id, INTERNAL_ERROR, "An internal error occurred");
+  }
+}
+
+// ─── list-brands ───
+
+export async function handleListBrands(
+  id: string | number
+): Promise<JsonRpcSuccessResponse | JsonRpcErrorResponse> {
+  try {
+    const cortex = createCachedCortexClient();
+    const brands = await cortex.listBrands();
+    return buildSuccessResponse(id, {
+      brands: brands.map((b: { id: string; active: boolean }) => ({
+        id: b.id,
+        active: b.active,
+      })),
+    });
+  } catch (error) {
+    if (error instanceof CortexError) {
+      return buildErrorResponse(id, CORTEX_ERROR, "Failed to fetch brands from Cortex");
+    }
+    return buildErrorResponse(id, INTERNAL_ERROR, "Failed to list brands");
+  }
+}
+
+// ─── get-image ───
+
+export async function handleGetImage(
+  id: string | number,
+  args: Record<string, unknown>,
+  clientId?: string
+): Promise<JsonRpcSuccessResponse | JsonRpcErrorResponse> {
+  const jobId = typeof args.job_id === "string" ? args.job_id : undefined;
+
+  if (!jobId) {
+    return buildErrorResponse(id, INVALID_PARAMS, "job_id is required");
+  }
+
+  try {
+    const job = await getJob(jobId);
+
+    if (!job) {
+      return buildErrorResponse(id, INVALID_PARAMS, "Job not found or expired");
+    }
+
+    // Ownership check — clients can only see their own jobs
+    if (clientId && clientId !== "master" && job.clientId !== clientId) {
+      return buildErrorResponse(id, INVALID_PARAMS, "Job not found or expired");
+    }
+
+    return buildSuccessResponse(id, {
+      job_id: job.id,
+      status: job.status,
+      request: job.request,
+      result: job.result ?? null,
+      error: job.error ?? null,
+      created_at: job.createdAt,
+      completed_at: job.completedAt ?? null,
+    });
+  } catch {
+    return buildErrorResponse(id, INTERNAL_ERROR, "Failed to retrieve job");
   }
 }

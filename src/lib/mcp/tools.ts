@@ -1,4 +1,5 @@
 import type { McpToolDefinition } from "@/types/mcp";
+import { MODEL_IDS } from "@/lib/providers/models";
 
 // ─── Tool Definitions ───
 
@@ -77,6 +78,12 @@ const GENERATE_IMAGE_TOOL: McpToolDefinition = {
         maximum: 4,
         default: 1,
       },
+      model: {
+        type: "string",
+        description:
+          "Model to use for generation. See list-models for available options.",
+        enum: [...MODEL_IDS],
+      },
       quality: {
         type: "string",
         description: "Image quality",
@@ -113,15 +120,42 @@ const LIST_PURPOSES_TOOL: McpToolDefinition = {
   },
 };
 
+const LIST_BRANDS_TOOL: McpToolDefinition = {
+  name: "list-brands",
+  description: "List available brands from Cortex with their active status.",
+  inputSchema: {
+    type: "object",
+    properties: {},
+  },
+};
+
+const GET_IMAGE_TOOL: McpToolDefinition = {
+  name: "get-image",
+  description:
+    "Retrieve a previously generated image by job ID. Returns the job status, and if completed, the image URLs or base64 data.",
+  inputSchema: {
+    type: "object",
+    required: ["job_id"],
+    properties: {
+      job_id: {
+        type: "string",
+        description: "The job ID returned from generate-image (e.g. job_abc123)",
+      },
+    },
+  },
+};
+
 // ─── Registry ───
 
 const TOOL_REGISTRY: readonly McpToolDefinition[] = [
   GENERATE_IMAGE_TOOL,
   LIST_STYLES_TOOL,
   LIST_PURPOSES_TOOL,
+  LIST_BRANDS_TOOL,
+  GET_IMAGE_TOOL,
 ] as const;
 
-const AUTH_REQUIRED_TOOLS = new Set(["generate-image"]);
+const AUTH_REQUIRED_TOOLS = new Set(["generate-image", "get-image"]);
 
 export function getToolDefinitions(): readonly McpToolDefinition[] {
   return TOOL_REGISTRY;

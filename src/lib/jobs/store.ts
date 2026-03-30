@@ -48,14 +48,11 @@ export async function getJob(id: string): Promise<Job | null> {
 }
 
 /**
- * Update a job's status and optionally set result or error.
- * Returns the updated job, or null if job not found.
+ * Atomically update a job's status and optionally set result or error.
+ * Uses a Lua script to read-modify-write in a single Redis operation,
+ * preventing TOCTOU races if concurrent writers are introduced.
  *
- * Note: This uses a non-atomic read-then-write pattern. This is acceptable
- * because each job has exactly one writer — the after() callback in the
- * generate route — which processes sequentially per request. If concurrent
- * writers are ever introduced (e.g., manual retry), this must be replaced
- * with a Redis WATCH/MULTI transaction or Lua script for atomicity.
+ * Returns the updated job, or null if job not found.
  */
 export async function updateJob(
   id: string,
@@ -68,20 +65,56 @@ export async function updateJob(
   const kv = getKv();
   if (!kv) return null;
 
-  const existing = await kv.get<Job>(jobKey(id));
-  if (!existing) return null;
+  const key = jobKey(id);
+  const now = new Date().toISOString();
+  const isTerminal = update.status === "completed" || update.status === "failed";
 
-  const updated: Job = {
-    ...existing,
-    status: update.status,
-    result: update.result ?? existing.result,
-    error: update.error ?? existing.error,
-    completedAt:
-      update.status === "completed" || update.status === "failed"
-        ? new Date().toISOString()
-        : existing.completedAt,
-  };
+  // Lua script: atomic read-modify-write on a single key
+  const script = `
+    local raw = redis.call('GET', KEYS[1])
+    if not raw then return nil end
+    local job = cjson.decode(raw)
+    job['status'] = ARGV[1]
+    if ARGV[2] ~= '' then job['result'] = cjson.decode(ARGV[2]) end
+    if ARGV[3] ~= '' then job['error'] = ARGV[3] end
+    if ARGV[4] ~= '' then job['completedAt'] = ARGV[4] end
+    local encoded = cjson.encode(job)
+    redis.call('SET', KEYS[1], encoded, 'EX', tonumber(ARGV[5]))
+    return encoded
+  `;
 
-  await kv.set(jobKey(id), updated, { ex: JOB_TTL_SECONDS });
-  return updated;
+  try {
+    const rawResult = await kv.eval<
+      [string, string, string, string, string],
+      string | null
+    >(
+      script,
+      [key],
+      [
+        update.status,
+        update.result ? JSON.stringify(update.result) : "",
+        update.error ?? "",
+        isTerminal ? now : "",
+        String(JOB_TTL_SECONDS),
+      ],
+    );
+
+    if (!rawResult) return null;
+    return JSON.parse(rawResult) as Job;
+  } catch {
+    // Fallback: non-atomic read-then-write (e.g., if eval is unavailable)
+    const existing = await kv.get<Job>(key);
+    if (!existing) return null;
+
+    const updated: Job = {
+      ...existing,
+      status: update.status,
+      result: update.result ?? existing.result,
+      error: update.error ?? existing.error,
+      completedAt: isTerminal ? now : existing.completedAt,
+    };
+
+    await kv.set(key, updated, { ex: JOB_TTL_SECONDS });
+    return updated;
+  }
 }

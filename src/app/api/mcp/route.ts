@@ -1,178 +1,224 @@
-import { NextResponse, after } from "next/server";
-import { JsonRpcRequestSchema } from "@/types/mcp";
-import type { JsonRpcResponse } from "@/types/mcp";
-import { getToolDefinitions, findTool, isAuthRequired } from "@/lib/mcp/tools";
-import {
-  buildErrorResponse,
-  buildToolsListResponse,
-  PARSE_ERROR,
-  INVALID_REQUEST,
-  METHOD_NOT_FOUND,
-  AUTH_REQUIRED,
-  RATE_LIMITED,
-  SCOPE_DENIED,
-  INTERNAL_ERROR,
-} from "@/lib/mcp/errors";
-import {
-  handleListStyles,
-  handleListPurposes,
-  handleGenerateImage,
-} from "@/lib/mcp/handlers";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import { createMcpServer, type McpRequestContext } from "@/lib/mcp/server";
 import { authenticateRequest } from "@/lib/middleware/auth";
-import { getEnv } from "@/lib/config/env";
-import { createLogger } from "@/lib/logging/logger";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
-import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { corsHeaders, handlePreflight } from "@/lib/middleware/cors";
+import { createLogger } from "@/lib/logging/logger";
 import { logUsage } from "@/lib/usage/logger";
 import { estimateCost } from "@/lib/usage/cost";
+import { after } from "next/server";
 
 export const maxDuration = 60;
 
-/** CORS preflight */
-export function OPTIONS(request: Request) {
-  return handlePreflight(request) ?? new NextResponse(null, { status: 204 });
+const logger = createLogger({ module: "mcp-transport" });
+
+// ─── Helpers ───
+
+/**
+ * Extract bearer token from Authorization header or ?token= query param.
+ * Returns a new Request with the Authorization header set if token was in URL.
+ */
+function extractAuth(incoming: Request): Request {
+  const url = new URL(incoming.url);
+  const tokenParam = url.searchParams.get("token");
+
+  if (tokenParam && !incoming.headers.get("authorization")) {
+    // Redact token from URL for logging safety
+    const newHeaders = new Headers(incoming.headers);
+    newHeaders.set("Authorization", `Bearer ${tokenParam}`);
+    return new Request(incoming, { headers: newHeaders });
+  }
+
+  return incoming;
 }
 
 /**
- * MCP Server endpoint — JSON-RPC 2.0 over HTTP.
- * Always returns HTTP 200. Errors are in the JSON-RPC envelope.
+ * Authenticate and build MCP AuthInfo for the SDK transport.
+ * We extend AuthInfo with our custom McpRequestContext fields.
+ * Returns the authInfo or a Response (error) if auth/rate-limit fails.
  */
-export async function POST(
-  request: Request
-): Promise<NextResponse<JsonRpcResponse>> {
-  const requestId = getRequestId(request);
-  const headers = { ...requestIdHeaders(requestId), ...corsHeaders(request) };
+async function buildAuthContext(
+  request: Request,
+): Promise<{ authInfo: AuthInfo & McpRequestContext } | { error: Response }> {
+  const authResult = await authenticateRequest(request);
 
-  // Parse JSON body
-  let body: unknown;
+  if (authResult.type === "error") {
+    return {
+      error: new Response(JSON.stringify({ error: authResult.message }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+      }),
+    };
+  }
+
+  const clientRateLimit =
+    authResult.type === "client" ? authResult.client.rateLimit : undefined;
+  const rateLimitError = await checkRateLimit(request, clientRateLimit);
+  if (rateLimitError) {
+    return {
+      error: new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+      }),
+    };
+  }
+
+  const clientId =
+    authResult.type === "client"
+      ? authResult.client.clientId
+      : authResult.type === "user"
+        ? authResult.user.id
+        : "master";
+  const clientName =
+    authResult.type === "client"
+      ? authResult.client.clientName
+      : authResult.type === "user"
+        ? authResult.user.username
+        : "master";
+
+  const token = request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+  const scopes =
+    authResult.type === "client" && authResult.client.scopes
+      ? [...authResult.client.scopes]
+      : [];
+
+  const authInfo: AuthInfo & McpRequestContext = {
+    // AuthInfo fields (required by SDK)
+    token,
+    clientId,
+    scopes,
+    // McpRequestContext fields (used by tool callbacks)
+    clientName,
+    rateLimit: clientRateLimit,
+    onUsage: (meta) => {
+      after(
+        logUsage({
+          clientId,
+          clientName,
+          brand: meta.brand,
+          purpose: meta.purpose,
+          style: meta.style,
+          imageCount: meta.imageCount,
+          quality: meta.quality,
+          estimatedCostUsd: estimateCost(meta.imageCount, meta.quality),
+          processingTimeMs: meta.processingTimeMs,
+          cached: false,
+          endpoint: "mcp",
+          timestamp: new Date(),
+        }),
+      );
+    },
+  };
+
+  return { authInfo };
+}
+
+/**
+ * Merge CORS headers into a Response.
+ */
+function withCors(response: Response, request: Request): Response {
+  const cors = corsHeaders(request);
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(cors)) {
+    headers.set(key, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+// ─── Route Handlers ───
+
+/** CORS preflight */
+export async function OPTIONS(request: Request): Promise<Response> {
+  const preflight = handlePreflight(request);
+  if (preflight) return preflight;
+  return new Response(null, { status: 204 });
+}
+
+/**
+ * POST /api/mcp — Streamable HTTP transport for MCP.
+ * Handles initialize, tools/list, tools/call, and notifications.
+ * Stateless mode: each request creates a fresh server + transport.
+ */
+export async function POST(incomingRequest: Request): Promise<Response> {
+  const request = extractAuth(incomingRequest);
+
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      buildErrorResponse(null, PARSE_ERROR, "Invalid JSON"),
-      { headers },
-    );
-  }
-
-  // Validate JSON-RPC structure
-  const parsed = JsonRpcRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      buildErrorResponse(null, INVALID_REQUEST, "Invalid JSON-RPC 2.0 request"),
-      { headers },
-    );
-  }
-
-  const { id, method, params } = parsed.data;
-
-  // ─── tools/list — return all tool definitions ───
-  if (method === "tools/list") {
-    return NextResponse.json(
-      buildToolsListResponse(id, getToolDefinitions()),
-      { headers },
-    );
-  }
-
-  // ─── tools/call — dispatch to a specific tool ───
-  if (method === "tools/call") {
-    const toolName = typeof params.name === "string" ? params.name : undefined;
-    const toolArgs =
-      params.arguments != null && typeof params.arguments === "object"
-        ? (params.arguments as Record<string, unknown>)
-        : {};
-
-    if (!toolName || !findTool(toolName)) {
-      return NextResponse.json(
-        buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown tool: ${toolName ?? "undefined"}`),
-        { headers },
-      );
+    // Authenticate
+    const authOrError = await buildAuthContext(request);
+    if ("error" in authOrError) {
+      return withCors(authOrError.error, request);
     }
 
-    // Auth check for protected tools
-    let authResult: Awaited<ReturnType<typeof authenticateRequest>> | undefined;
-    if (isAuthRequired(toolName)) {
-      authResult = await authenticateRequest(request);
-      if (authResult.type === "error") {
-        return NextResponse.json(
-          buildErrorResponse(id, AUTH_REQUIRED, "Authentication required for generate-image"),
-          { headers },
-        );
+    // Create per-request server and transport (stateless mode)
+    const server = createMcpServer();
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      sessionIdGenerator: undefined, // stateless
+      enableJsonResponse: true, // prefer JSON over SSE for serverless
+    });
+
+    // Connect server to transport
+    await server.connect(transport);
+
+    // Let the transport handle the request, passing auth context
+    const response = await transport.handleRequest(request, {
+      authInfo: authOrError.authInfo,
+    });
+
+    // Clean up after response is sent
+    after(async () => {
+      try {
+        await server.close();
+      } catch {
+        // Ignore close errors
       }
+    });
 
-      const rateLimitError = await checkRateLimit(request);
-      if (rateLimitError) {
-        return NextResponse.json(
-          buildErrorResponse(id, RATE_LIMITED, "Rate limit exceeded"),
-          { headers },
-        );
-      }
-    }
-
-    // Dispatch
-    try {
-      switch (toolName) {
-        case "list-styles":
-          return NextResponse.json(handleListStyles(id), { headers });
-
-        case "list-purposes":
-          return NextResponse.json(handleListPurposes(id), { headers });
-
-        case "generate-image": {
-          // Brand scope check
-          const brand = typeof toolArgs.brand === "string" ? toolArgs.brand : getEnv().DEFAULT_BRAND;
-          if (
-            authResult?.type === "client" &&
-            authResult.client.scopes?.length &&
-            !authResult.client.scopes.includes(brand)
-          ) {
-            return NextResponse.json(
-              buildErrorResponse(id, SCOPE_DENIED, `Your API key does not have access to brand "${brand}".`),
-              { headers },
-            );
-          }
-
-          const clientId = authResult?.type === "client" ? authResult.client.clientId : "master";
-          const clientName = authResult?.type === "client" ? authResult.client.clientName : "master";
-          const result = await handleGenerateImage(id, toolArgs, (meta) => {
-            after(logUsage({
-              clientId,
-              clientName,
-              brand: meta.brand,
-              purpose: meta.purpose,
-              style: meta.style,
-              imageCount: meta.imageCount,
-              quality: meta.quality,
-              estimatedCostUsd: estimateCost(meta.imageCount, meta.quality),
-              processingTimeMs: meta.processingTimeMs,
-              cached: false,
-              endpoint: "mcp",
-              timestamp: new Date(),
-            }));
-          });
-          return NextResponse.json(result, { headers });
-        }
-
-        default:
-          return NextResponse.json(
-            buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown tool: ${toolName}`),
-            { headers },
-          );
-      }
-    } catch (error) {
-      createLogger({ requestId, module: "mcp" }).error("Dispatch error", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return NextResponse.json(
-        buildErrorResponse(id, INTERNAL_ERROR, "Internal error"),
-        { headers },
-      );
-    }
+    return withCors(response, request);
+  } catch (error) {
+    logger.error("MCP transport error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return withCors(
+      new Response(JSON.stringify({ error: "Internal server error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }),
+      request,
+    );
   }
+}
 
-  // Unknown method
-  return NextResponse.json(
-    buildErrorResponse(id, METHOD_NOT_FOUND, `Unknown method: ${method}`),
-    { headers },
+/**
+ * GET /api/mcp — SSE stream for server-initiated notifications.
+ * In stateless mode, this returns 405 since there's no session to stream to.
+ */
+export async function GET(request: Request): Promise<Response> {
+  return withCors(
+    new Response(
+      JSON.stringify({
+        error: "SSE not supported in stateless mode. Use POST for all MCP requests.",
+      }),
+      {
+        status: 405,
+        headers: { "Content-Type": "application/json" },
+      },
+    ),
+    request,
+  );
+}
+
+/**
+ * DELETE /api/mcp — Session teardown.
+ * In stateless mode, this is a no-op.
+ */
+export async function DELETE(request: Request): Promise<Response> {
+  return withCors(
+    new Response(null, { status: 204 }),
+    request,
   );
 }

@@ -55,6 +55,14 @@ export const GenerateImageParamsSchema = z.object({
   style: ImageStyle.optional(),
   dimensions: DimensionsSchema.optional(),
   count: z.number().int().min(1).max(4).default(1),
+  model: z.enum([
+    "gpt-image-1",
+    "dall-e-3",
+    "flux-pro",
+    "flux-dev",
+    "flux-schnell",
+    "grok-aurora",
+  ]).optional(),
   quality: z.enum(["standard", "hd"]).default("hd"),
   output_format: z.enum(["url", "base64"]).default("url"),
 });

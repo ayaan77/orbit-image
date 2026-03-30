@@ -19,6 +19,20 @@ vi.mock("@upstash/redis", () => ({
     hgetall: vi.fn(async (key: string) => {
       return (mockStore.get(key) as Record<string, unknown>) ?? null;
     }),
+    hlen: vi.fn(async (key: string) => {
+      const hash = mockStore.get(key) as Record<string, unknown> | undefined;
+      return hash ? Object.keys(hash).length : 0;
+    }),
+    hscan: vi.fn(async (key: string, cursor: number, opts?: { count?: number }) => {
+      const hash = mockStore.get(key) as Record<string, unknown> | undefined;
+      if (!hash) return [0, []];
+      // Return all entries in a single scan (simulating small dataset)
+      const entries: unknown[] = [];
+      for (const [field, value] of Object.entries(hash)) {
+        entries.push(field, value);
+      }
+      return [0, entries]; // cursor 0 = done
+    }),
   })),
 }));
 
