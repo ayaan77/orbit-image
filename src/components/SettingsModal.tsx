@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { getApiKey, setApiKey, clearApiKey } from "@/lib/client/storage";
+import { clearApiKey } from "@/lib/client/storage";
 import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
+import { useAuth } from "@/components/AuthProvider";
 import styles from "./SettingsModal.module.css";
 
 interface SettingsModalProps {
@@ -12,7 +13,7 @@ interface SettingsModalProps {
   readonly onClose: () => void;
 }
 
-type TabId = "key" | "services" | "endpoints" | "danger";
+type TabId = "account" | "services" | "endpoints" | "danger";
 
 interface TabDef {
   readonly id: TabId;
@@ -22,17 +23,12 @@ interface TabDef {
 
 const TABS: readonly TabDef[] = [
   {
-    id: "key",
-    label: "API Key",
+    id: "account",
+    label: "Account",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
       </svg>
     ),
   },
@@ -159,26 +155,21 @@ const ENDPOINTS: readonly EndpointInfo[] = [
 ] as const;
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<TabId>("key");
-  const [keyValue, setKeyValue] = useState("");
-  const [showKey, setShowKey] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("account");
   const [connection, setConnection] = useState<ConnectionStatus>({
     state: "idle",
   });
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null);
   const { showToast } = useToast();
+  const { user, logout } = useAuth();
   const overlayRef = useRef<HTMLDivElement>(null);
-  const firstFocusRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setKeyValue(getApiKey());
-      setShowKey(false);
       setConnection({ state: "idle" });
-      setActiveTab("key");
+      setActiveTab("account");
       setCopiedIndex(null);
-      requestAnimationFrame(() => firstFocusRef.current?.focus());
     }
   }, [isOpen]);
 
@@ -213,16 +204,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     },
     [onClose],
   );
-
-  const handleSave = useCallback(() => {
-    const trimmed = keyValue.trim();
-    if (!trimmed) {
-      showToast("API key cannot be empty", "error");
-      return;
-    }
-    setApiKey(trimmed);
-    showToast("API key saved", "success");
-  }, [keyValue, showToast]);
 
   const lastTestRef = useRef<number>(0);
 
@@ -269,17 +250,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }, [showToast, connection.state]);
 
-  const handleClear = useCallback(() => {
+  const handleClear = useCallback(async () => {
     clearApiKey();
-    setKeyValue("");
-    showToast("Settings cleared", "info");
+    await logout();
+    showToast("Logged out and settings cleared", "info");
     onClose();
-  }, [onClose, showToast]);
+  }, [onClose, showToast, logout]);
 
   const handleCopyCurl = useCallback(
     (index: number) => {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-      const key = getApiKey() || "YOUR_API_KEY";
+      const key = "YOUR_API_KEY";
       const curlCmd = ENDPOINTS[index].curl
         .replace(/\{BASE_URL\}/g, baseUrl)
         .replace(/\{API_KEY\}/g, key);
@@ -353,15 +334,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         {/* Tab Content */}
         <div className={styles.tabContent}>
-          {activeTab === "key" && (
-            <ApiKeyTab
-              keyValue={keyValue}
-              showKey={showKey}
-              firstFocusRef={firstFocusRef}
-              onKeyChange={setKeyValue}
-              onToggleVisibility={() => setShowKey(!showKey)}
-              onSave={handleSave}
-            />
+          {activeTab === "account" && (
+            <AccountTab user={user} onLogout={async () => { await logout(); onClose(); }} />
           )}
           {activeTab === "services" && (
             <ServicesTab
@@ -391,53 +365,56 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
 /* ─── Tab Components ─── */
 
-function ApiKeyTab({
-  keyValue,
-  showKey,
-  firstFocusRef,
-  onKeyChange,
-  onToggleVisibility,
-  onSave,
+function AccountTab({
+  user,
+  onLogout,
 }: {
-  readonly keyValue: string;
-  readonly showKey: boolean;
-  readonly firstFocusRef: React.RefObject<HTMLInputElement | null>;
-  readonly onKeyChange: (v: string) => void;
-  readonly onToggleVisibility: () => void;
-  readonly onSave: () => void;
+  readonly user: { readonly username: string; readonly email?: string; readonly role: string } | null;
+  readonly onLogout: () => void;
 }) {
   return (
     <div className={styles.section}>
-      <label className={styles.label} htmlFor="settings-api-key">
-        API Key
-      </label>
       <p className={styles.hint}>
-        Your API key is stored locally in your browser and never sent to our
-        servers.
+        You are signed in via session cookie. Your session persists across tabs.
       </p>
-      <div className={styles.inputRow}>
-        <input
-          ref={firstFocusRef}
-          id="settings-api-key"
-          type={showKey ? "text" : "password"}
-          className={styles.input}
-          value={keyValue}
-          onChange={(e) => onKeyChange(e.target.value)}
-          placeholder="Enter your API key..."
-          spellCheck={false}
-          autoComplete="off"
-        />
-        <button
-          type="button"
-          className={styles.toggleVisibility}
-          onClick={onToggleVisibility}
-          aria-label={showKey ? "Hide API key" : "Show API key"}
-        >
-          {showKey ? <EyeOffIcon /> : <EyeIcon />}
-        </button>
-      </div>
-      <button className={styles.saveBtn} onClick={onSave}>
-        Save Key
+
+      {user && (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-3)",
+          padding: "var(--space-4)",
+          background: "var(--bg-card)",
+          borderRadius: "var(--radius-md)",
+          border: "1px solid var(--border-subtle)",
+          marginBottom: "var(--space-4)",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Username</span>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", fontWeight: 500 }}>{user.username}</span>
+          </div>
+          {user.email && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Email</span>
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{user.email}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Role</span>
+            <span style={{
+              fontSize: "11px",
+              padding: "2px 8px",
+              borderRadius: "var(--radius-sm)",
+              background: user.role === "admin" ? "rgba(139, 92, 246, 0.15)" : "rgba(255,255,255,0.06)",
+              color: user.role === "admin" ? "var(--accent)" : "var(--text-secondary)",
+              fontWeight: 500,
+            }}>{user.role}</span>
+          </div>
+        </div>
+      )}
+
+      <button className={styles.saveBtn} onClick={onLogout} style={{ background: "rgba(248, 113, 113, 0.1)", color: "var(--error)", border: "1px solid rgba(248, 113, 113, 0.2)" }}>
+        Sign Out
       </button>
     </div>
   );
@@ -869,9 +846,8 @@ function DangerTab({ onClear }: { readonly onClear: () => void }) {
         <div className={styles.dangerInfo}>
           <h3 className={styles.dangerTitle}>Clear All Settings</h3>
           <p className={styles.dangerDesc}>
-            This will remove your API key and all stored preferences from this
-            browser. You&apos;ll need to re-enter your API key to continue using
-            the app.
+            This will sign you out and clear all stored preferences from this
+            browser. You&apos;ll need to sign in again to continue.
           </p>
         </div>
         <button className={styles.clearBtn} onClick={onClear}>
@@ -891,33 +867,3 @@ function DangerTab({ onClear }: { readonly onClear: () => void }) {
   );
 }
 
-/* ─── Shared Icons ─── */
-
-function EyeIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
