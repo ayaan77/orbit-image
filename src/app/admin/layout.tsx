@@ -43,12 +43,32 @@ function KeyIcon() {
   );
 }
 
+function PaletteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a2 2 0 002-2c0-.53-.2-1-.55-1.35-.35-.38-.55-.83-.55-1.35a2 2 0 012-2h2.35c3.27 0 5.94-2.5 5.94-5.58C21.29 5.93 17.22 2 12 2z" />
+      <circle cx="7.5" cy="11.5" r="1.5" fill="currentColor" />
+      <circle cx="10.5" cy="7.5" r="1.5" fill="currentColor" />
+      <circle cx="15.5" cy="7.5" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 function ChartIcon() {
   return (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="10" width="3" height="6" rx="0.5" />
       <rect x="7.5" y="6" width="3" height="10" rx="0.5" />
       <rect x="13" y="2" width="3" height="14" rx="0.5" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7.5 10.5a3.5 3.5 0 005 0l2-2a3.5 3.5 0 00-5-5l-1 1" />
+      <path d="M10.5 7.5a3.5 3.5 0 00-5 0l-2 2a3.5 3.5 0 005 5l1-1" />
     </svg>
   );
 }
@@ -83,7 +103,9 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: "/admin", label: "Overview", icon: <GridIcon /> },
   { href: "/admin/users", label: "Users", icon: <UsersIcon /> },
   { href: "/admin/tokens", label: "Tokens", icon: <KeyIcon /> },
+  { href: "/admin/brands", label: "Brands", icon: <PaletteIcon /> },
   { href: "/admin/usage", label: "Usage", icon: <ChartIcon /> },
+  { href: "/admin/connect", label: "Connect", icon: <LinkIcon /> },
 ];
 
 /* ─── Admin Gate ─── */
