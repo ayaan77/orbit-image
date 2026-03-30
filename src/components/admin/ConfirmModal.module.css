@@ -1,0 +1,119 @@
+/* ─── Confirm Modal ─── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  animation: fadeIn var(--duration-fast) var(--ease-out) both;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  width: calc(100% - var(--space-8));
+  max-width: 420px;
+  background: var(--bg-card, #0f172a);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  animation: scaleIn var(--duration-fast) var(--ease-out) both;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2) 0;
+  line-height: 1.4;
+}
+
+.message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-6) 0;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm, 13px);
+  font-weight: 500;
+  border-radius: var(--radius-sm, 8px);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.btnCancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+}
+
+.btnCancel:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+/* ─── Confirm Button Variants ─── */
+
+.btnConfirmDanger {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.btnConfirmDanger:hover {
+  background: rgba(248, 113, 113, 0.25);
+}
+
+.btnConfirmWarning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.btnConfirmWarning:hover {
+  background: rgba(251, 191, 36, 0.25);
+}
+
+.btnConfirmDefault {
+  background: var(--accent, #8b5cf6);
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.btnConfirmDefault:hover {
+  background: var(--accent-hover, #7c3aed);
+}

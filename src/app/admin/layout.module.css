@@ -2,30 +2,41 @@
 .wrapper {
   display: flex;
   min-height: 100vh;
+  animation: fadeIn 0.3s var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ─── Sidebar ─── */
 .sidebar {
-  width: 200px;
+  width: 220px;
   flex-shrink: 0;
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   padding: var(--space-6) 0;
 }
 
-.logo {
+/* ─── Logo ─── */
+.logoSection {
   padding: 0 var(--space-5);
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-6);
+}
+
+.logoLink {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  text-decoration: none;
 }
 
 .logoIcon {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   background: var(--gradient-accent);
   display: flex;
@@ -34,6 +45,13 @@
   font-size: var(--text-sm);
   font-weight: 700;
   color: #fff;
+  flex-shrink: 0;
+}
+
+.logoTextGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .logoText {
@@ -43,11 +61,40 @@
   letter-spacing: -0.01em;
 }
 
+.versionBadge {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.02em;
+}
+
+/* ─── Dividers ─── */
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 var(--space-5);
+}
+
+/* ─── Navigation ─── */
 .nav {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  padding: var(--space-4) var(--space-3) 0;
+  flex: 1;
+}
+
+.navLabel {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   padding: 0 var(--space-3);
+  margin-bottom: var(--space-1);
 }
 
 .navLink {
@@ -60,23 +107,73 @@
   color: var(--text-secondary);
   text-decoration: none;
   transition: all var(--duration-fast) var(--ease-out);
+  border-left: 2px solid transparent;
 }
 
 .navLink:hover {
   color: var(--text-primary);
-  background: var(--bg-card-hover);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .navLinkActive {
-  color: var(--text-primary);
+  color: var(--accent);
   background: var(--accent-subtle);
+  border-left-color: var(--accent);
+}
+
+.navLinkActive:hover {
+  color: var(--accent);
+  background: rgba(139, 92, 246, 0.12);
 }
 
 .navIcon {
-  font-size: var(--text-base);
-  width: 20px;
-  text-align: center;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ─── Bottom Section ─── */
+.bottomSection {
+  padding: 0 var(--space-3);
+}
+
+.backLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.backLink:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.backIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backIcon svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* ─── Main Content ─── */
@@ -95,12 +192,13 @@
   min-height: 100vh;
   flex-direction: column;
   gap: var(--space-4);
+  animation: fadeIn 0.3s var(--ease-out);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--border-subtle);
+  border: 3px solid rgba(255, 255, 255, 0.06);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -112,12 +210,23 @@
   }
 }
 
-.denied {
-  font-size: var(--text-lg);
-  color: var(--text-secondary);
+.deniedIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: rgba(248, 113, 113, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.deniedIcon {
-  font-size: var(--text-3xl);
+.deniedIcon svg {
+  width: 24px;
+  height: 24px;
   color: var(--error);
+}
+
+.denied {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
 }

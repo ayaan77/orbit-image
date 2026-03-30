@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/admin/ConfirmModal";
 import styles from "./UserTable.module.css";
 
 interface User {
@@ -37,8 +38,26 @@ const EMPTY_FORM: UserFormState = {
   email: "",
 };
 
+const AVATAR_COLORS = [
+  "linear-gradient(135deg, #8b5cf6, #6366f1)",
+  "linear-gradient(135deg, #3b82f6, #2563eb)",
+  "linear-gradient(135deg, #34d399, #059669)",
+  "linear-gradient(135deg, #f59e0b, #d97706)",
+  "linear-gradient(135deg, #ef4444, #dc2626)",
+  "linear-gradient(135deg, #ec4899, #db2777)",
+];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export function UserTable() {
   const { showToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [users, setUsers] = useState<readonly User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +151,12 @@ export function UserTable() {
   }
 
   async function handleDelete(userId: string, username: string) {
-    if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete user?",
+      message: `This will permanently delete "${username}". This cannot be undone.`,
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       const res = await apiFetch(`/api/admin/users/${userId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
@@ -171,17 +195,26 @@ export function UserTable() {
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  if (loading) return <div className={styles.loading}>Loading users...</div>;
+  if (loading) {
+    return (
+      <div className={styles.loadingWrap}>
+        <div className={styles.loadingSkeleton} />
+        <div className={styles.loadingSkeleton} />
+        <div className={styles.loadingSkeleton} />
+      </div>
+    );
+  }
   if (error) return <div className={styles.error}>{error}</div>;
 
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
+        <span className={styles.count}>{total} user{total !== 1 ? "s" : ""}</span>
         <button
           className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={() => setShowCreate(!showCreate)}
         >
-          {showCreate ? "Cancel" : "+ Create User"}
+          {showCreate ? "Cancel" : "+ Add User"}
         </button>
       </div>
 
@@ -240,17 +273,22 @@ export function UserTable() {
       )}
 
       {users.length === 0 ? (
-        <div className={styles.empty}>No users found</div>
+        <div className={styles.empty}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" /><circle cx="9" cy="7" r="4" />
+          </svg>
+          <span>No users found</span>
+        </div>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Username</th>
+                <th>User</th>
                 <th>Role</th>
+                <th>Status</th>
                 <th>Rate Limit</th>
                 <th>Budget</th>
-                <th>Active</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -259,7 +297,14 @@ export function UserTable() {
               {users.map((user) =>
                 editingId === user.id ? (
                   <tr key={user.id}>
-                    <td>{user.username}</td>
+                    <td>
+                      <div className={styles.userCell}>
+                        <div className={styles.avatar} style={{ background: getAvatarColor(user.username) }}>
+                          {user.username[0].toUpperCase()}
+                        </div>
+                        <span className={styles.username}>{user.username}</span>
+                      </div>
+                    </td>
                     <td>
                       <select
                         className={styles.formSelect}
@@ -269,6 +314,12 @@ export function UserTable() {
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
                       </select>
+                    </td>
+                    <td>
+                      <div className={styles.statusCell}>
+                        <span className={`${styles.statusDot} ${user.active ? styles.statusDotActive : styles.statusDotInactive}`} />
+                        <span>{user.active ? "Active" : "Inactive"}</span>
+                      </div>
                     </td>
                     <td>
                       <input
@@ -290,8 +341,7 @@ export function UserTable() {
                         style={{ width: 80 }}
                       />
                     </td>
-                    <td>{user.active ? "Yes" : "No"}</td>
-                    <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                    <td className={styles.dateCell}>{new Date(user.created_at).toLocaleDateString()}</td>
                     <td>
                       <div className={styles.actions}>
                         <button
@@ -311,38 +361,56 @@ export function UserTable() {
                     </td>
                   </tr>
                 ) : (
-                  <tr key={user.id}>
-                    <td>{user.username}</td>
+                  <tr key={user.id} className={!user.active ? styles.rowInactive : undefined}>
+                    <td>
+                      <div className={styles.userCell}>
+                        <div className={styles.avatar} style={{ background: getAvatarColor(user.username) }}>
+                          {user.username[0].toUpperCase()}
+                        </div>
+                        <div className={styles.userInfo}>
+                          <span className={styles.username}>{user.username}</span>
+                          {user.email && <span className={styles.userEmail}>{user.email}</span>}
+                        </div>
+                      </div>
+                    </td>
                     <td>
                       <span className={`${styles.badge} ${user.role === "admin" ? styles.badgeAdmin : styles.badgeUser}`}>
                         {user.role}
                       </span>
                     </td>
-                    <td>{user.rate_limit ?? "--"}</td>
-                    <td>{user.budget != null ? `$${user.budget}` : "--"}</td>
                     <td>
                       <button
-                        className={`${styles.badge} ${user.active ? styles.badgeActive : styles.badgeInactive}`}
+                        className={styles.statusBtn}
                         onClick={() => handleToggleActive(user.id, user.active)}
-                        style={{ cursor: "pointer", border: "none", background: "inherit" }}
+                        title={`Click to ${user.active ? "deactivate" : "activate"}`}
                       >
-                        {user.active ? "Active" : "Inactive"}
+                        <span className={`${styles.statusDot} ${user.active ? styles.statusDotActive : styles.statusDotInactive}`} />
+                        <span>{user.active ? "Active" : "Inactive"}</span>
                       </button>
                     </td>
-                    <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                    <td className={styles.monoCell}>{user.rate_limit ?? "--"}</td>
+                    <td className={styles.monoCell}>{user.budget != null ? `$${user.budget}` : "--"}</td>
+                    <td className={styles.dateCell}>{new Date(user.created_at).toLocaleDateString()}</td>
                     <td>
                       <div className={styles.actions}>
                         <button
-                          className={`${styles.btn} ${styles.btnGhost} ${styles.btnSmall}`}
+                          className={styles.iconBtn}
                           onClick={() => startEdit(user)}
+                          title="Edit user"
                         >
-                          Edit
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
                         </button>
                         <button
-                          className={`${styles.btn} ${styles.btnDanger} ${styles.btnSmall}`}
+                          className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
                           onClick={() => handleDelete(user.id, user.username)}
+                          title="Delete user"
                         >
-                          Delete
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                          </svg>
                         </button>
                       </div>
                     </td>
@@ -356,25 +424,29 @@ export function UserTable() {
 
       {totalPages > 1 && (
         <div className={styles.pagination}>
-          <button
-            className={`${styles.btn} ${styles.btnGhost} ${styles.btnSmall}`}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            Prev
-          </button>
           <span className={styles.pageInfo}>
             Page {page} of {totalPages}
           </span>
-          <button
-            className={`${styles.btn} ${styles.btnGhost} ${styles.btnSmall}`}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </button>
+          <div className={styles.pageButtons}>
+            <button
+              className={`${styles.btn} ${styles.btnGhost} ${styles.btnSmall}`}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Prev
+            </button>
+            <button
+              className={`${styles.btn} ${styles.btnGhost} ${styles.btnSmall}`}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
+
+      <ConfirmDialog />
     </div>
   );
 }

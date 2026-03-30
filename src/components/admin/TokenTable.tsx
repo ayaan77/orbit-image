@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/admin/ConfirmModal";
 import styles from "./TokenTable.module.css";
 
 interface McpToken {
@@ -34,6 +35,7 @@ const EMPTY_FORM: CreateTokenForm = {
 
 export function TokenTable() {
   const { showToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [tokens, setTokens] = useState<readonly McpToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +109,12 @@ export function TokenTable() {
   }
 
   async function handleRevoke(tokenId: string, tokenName: string) {
-    if (!confirm(`Revoke token "${tokenName}"? It will become inactive.`)) return;
+    const ok = await confirm({
+      title: "Revoke token?",
+      message: `This will deactivate "${tokenName}". It can no longer be used for API access.`,
+      variant: "warning",
+    });
+    if (!ok) return;
     try {
       const res = await apiFetch("/api/admin/tokens", {
         method: "PATCH",
@@ -123,7 +130,12 @@ export function TokenTable() {
   }
 
   async function handleDelete(tokenId: string, tokenName: string) {
-    if (!confirm(`Permanently delete token "${tokenName}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete token?",
+      message: `This will permanently delete "${tokenName}". This cannot be undone.`,
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       const res = await apiFetch("/api/admin/tokens", {
         method: "DELETE",
@@ -138,11 +150,13 @@ export function TokenTable() {
     }
   }
 
-  function copyToClipboard(text: string, label: string) {
-    navigator.clipboard.writeText(text).then(
-      () => showToast(`${label} copied to clipboard`, "success"),
-      () => showToast("Failed to copy", "error"),
-    );
+  async function copyToClipboard(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`${label} copied to clipboard`, "success");
+    } catch {
+      showToast("Failed to copy", "error");
+    }
   }
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -327,6 +341,8 @@ export function TokenTable() {
           </button>
         </div>
       )}
+
+      <ConfirmDialog />
     </div>
   );
 }
