@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /studio
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://orbit-image.vercel.app/sitemap.xml
