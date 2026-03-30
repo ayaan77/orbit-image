@@ -5,10 +5,12 @@ import styles from "./Header.module.css";
 interface HeaderProps {
   readonly onSettingsClick?: () => void;
   readonly onHistoryClick?: () => void;
+  readonly onTunnelClick?: () => void;
   readonly historyCount?: number;
   readonly showStudioLink?: boolean;
   readonly showAdminLink?: boolean;
   readonly providerStatus?: ProviderStatus | null;
+  readonly tunnelActive?: boolean;
 }
 
 const PROVIDER_DOTS: { key: "openai" | "replicate" | "xai"; label: string }[] = [
@@ -20,10 +22,12 @@ const PROVIDER_DOTS: { key: "openai" | "replicate" | "xai"; label: string }[] = 
 export function Header({
   onSettingsClick,
   onHistoryClick,
+  onTunnelClick,
   historyCount = 0,
   showStudioLink,
   showAdminLink,
   providerStatus,
+  tunnelActive,
 }: HeaderProps) {
   return (
     <header className={styles.header}>
@@ -111,6 +115,20 @@ export function Header({
                 />
               ))}
             </div>
+          )}
+
+          {tunnelActive && (
+            <>
+              <div className={styles.tunnelDivider} />
+              <button
+                className={styles.tunnelPill}
+                onClick={onTunnelClick}
+                aria-label="Tunnel is active — click to view"
+              >
+                <span className={styles.tunnelPillDot} />
+                <span className={styles.tunnelPillText}>Tunnel</span>
+              </button>
+            </>
           )}
 
           {onHistoryClick && (

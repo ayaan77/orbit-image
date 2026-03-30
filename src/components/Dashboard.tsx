@@ -131,6 +131,13 @@ export function Dashboard({ initialTab }: { readonly initialTab?: string } = {})
     initialTab && VALID_TABS.has(initialTab) ? (initialTab as TabId) : "overview"
   );
 
+  // Respond to external tab navigation (e.g. header tunnel pill click)
+  useEffect(() => {
+    if (initialTab && VALID_TABS.has(initialTab)) {
+      setActiveTab(initialTab as TabId);
+    }
+  }, [initialTab]);
+
   return (
     <div className={styles.dashboard}>
       <div className={styles.inner}>

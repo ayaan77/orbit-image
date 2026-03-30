@@ -33,6 +33,14 @@ const EXAMPLE_PROMPTS = [
   "List all available brands and their image generation styles",
 ] as const;
 
+const CLOUD_SVG = (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+    <path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+  </svg>
+);
+
+// ─── Helpers ───
+
 function CopyButton({ text, label }: { readonly text: string; readonly label?: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -55,6 +63,221 @@ function CopyButton({ text, label }: { readonly text: string; readonly label?: s
     </button>
   );
 }
+
+function ElapsedTime({ since }: { readonly since: string }) {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    const start = new Date(since).getTime();
+    const update = () => {
+      const diff = Math.floor((Date.now() - start) / 1000);
+      const m = Math.floor(diff / 60);
+      const s = diff % 60;
+      setElapsed(m > 0 ? `${m}m ${s}s` : `${s}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [since]);
+
+  return <span>{elapsed}</span>;
+}
+
+// ─── Share Grid Card (one-click copy) ───
+
+interface ShareCardProps {
+  readonly icon: string;
+  readonly iconClass: string;
+  readonly name: string;
+  readonly config: string;
+}
+
+function ShareCard({ icon, iconClass, name, config }: ShareCardProps) {
+  const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
+
+  const handleClick = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(config);
+      setCopied(true);
+      showToast(`${name} config copied!`, "success");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard write failed
+    }
+  }, [config, name, showToast]);
+
+  return (
+    <button className={`${styles.shareCard} ${copied ? styles.shareCardCopied : ""}`} onClick={handleClick}>
+      <div className={styles.shareCardTop}>
+        <div className={`${styles.shareCardIcon} ${iconClass}`}>{icon}</div>
+        <span className={styles.shareCardName}>{name}</span>
+      </div>
+      <span className={styles.shareCardAction}>
+        {copied ? "Copied!" : "Click to copy config"}
+      </span>
+    </button>
+  );
+}
+
+// ─── Tunnel Hero Card ───
+
+function TunnelHero({ baseUrl, currentToken }: { readonly baseUrl: string; readonly currentToken: string }) {
+  const result = useTunnel();
+  const { showToast } = useToast();
+
+  if (!result) return null;
+
+  const { tunnel, cloudflaredInstalled, loading, startTunnel, stopTunnel } = result;
+
+  if (loading) return null;
+
+  const handleStart = async () => {
+    showToast("Starting tunnel...", "info");
+    await startTunnel();
+  };
+
+  const handleStop = async () => {
+    await stopTunnel();
+    showToast("Tunnel stopped — configs reverted to localhost", "info");
+  };
+
+  const handleCopyUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("URL copied!", "success");
+    } catch {
+      // Clipboard write failed
+    }
+  };
+
+  const isActive = tunnel.status === "active" && tunnel.url;
+
+  // ─── Active State: Integrated Share Grid ───
+  if (isActive) {
+    return (
+      <div className={styles.heroCard}>
+        <div className={styles.heroActive}>
+          {/* Status bar */}
+          <div className={styles.heroStatusBar}>
+            <div className={`${styles.heroDot} ${styles.heroDotActive}`} />
+            <span className={styles.heroStatusText}>Tunnel Active</span>
+            {tunnel.startedAt && (
+              <span className={styles.heroElapsed}>
+                <ElapsedTime since={tunnel.startedAt} />
+              </span>
+            )}
+            <button className={styles.heroStopBtn} onClick={handleStop}>
+              Stop
+            </button>
+          </div>
+
+          {/* Share Grid */}
+          <div className={styles.shareGrid}>
+            <ShareCard
+              icon="C"
+              iconClass={styles.shareIconClaude}
+              name="Claude Desktop"
+              config={getClaudeDesktopConfig(baseUrl, currentToken)}
+            />
+            <ShareCard
+              icon="▸"
+              iconClass={styles.shareIconCursor}
+              name="Cursor"
+              config={getCursorConfig(baseUrl, currentToken)}
+            />
+            <ShareCard
+              icon=">"
+              iconClass={styles.shareIconCode}
+              name="Claude Code"
+              config={getClaudeCodeConfig(baseUrl, currentToken)}
+            />
+            <button
+              className={styles.shareCard}
+              onClick={() => handleCopyUrl(tunnel.url!)}
+            >
+              <div className={styles.shareCardTop}>
+                <div className={`${styles.shareCardIcon} ${styles.shareIconGeneric}`}>{"{"}</div>
+                <span className={styles.shareCardName}>Raw URL</span>
+              </div>
+              <span className={styles.shareCardAction}>Click to copy URL</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Stopped / Starting / Error State: Informational Split ───
+  return (
+    <div className={styles.heroCard}>
+      <div className={styles.heroSplit}>
+        {/* Left: Info */}
+        <div className={styles.heroLeft}>
+          <div className={styles.heroStatus}>
+            <div className={`${styles.heroDot} ${
+              tunnel.status === "starting" ? styles.heroDotStarting : styles.heroDotStopped
+            }`} />
+            <span className={styles.heroStatusLabel}>
+              {tunnel.status === "starting" ? "Starting..." : "Tunnel Offline"}
+            </span>
+          </div>
+          <h3 className={styles.heroTitle}>Share with your team</h3>
+          <p className={styles.heroDesc}>
+            Create a public URL so teammates and clients can connect their AI tools to your local Orbit Image server.
+          </p>
+
+          {/* Error */}
+          {tunnel.status === "error" && (
+            <div className={styles.heroError}>{tunnel.error}</div>
+          )}
+
+          {/* Not installed */}
+          {cloudflaredInstalled === false && (
+            <div className={styles.heroInstall}>
+              <strong>cloudflared</strong> is required.{" "}
+              <code>brew install cloudflare/cloudflare/cloudflared</code>
+            </div>
+          )}
+
+          {/* Starting */}
+          {tunnel.status === "starting" && (
+            <div className={styles.heroStartingMsg}>
+              Waiting for Cloudflare to assign a URL...
+            </div>
+          )}
+
+          {/* Start button */}
+          {tunnel.status === "stopped" && cloudflaredInstalled !== false && (
+            <button className={styles.heroStartBtn} onClick={handleStart}>
+              Start Tunnel
+            </button>
+          )}
+
+          {/* Retry after error */}
+          {tunnel.status === "error" && (
+            <button className={styles.heroStartBtn} onClick={handleStart}>
+              Retry
+            </button>
+          )}
+        </div>
+
+        {/* Right: Visual */}
+        <div className={styles.heroRight}>
+          <div className={styles.heroCloudIcon}>{CLOUD_SVG}</div>
+          <div className={styles.heroClients}>
+            <div className={`${styles.heroClientDot} ${styles.shareIconClaude}`}>C</div>
+            <div className={`${styles.heroClientDot} ${styles.shareIconCursor}`}>▸</div>
+            <div className={`${styles.heroClientDot} ${styles.shareIconCode}`}>{">"}</div>
+          </div>
+          <span className={styles.heroClientLabel}>Claude · Cursor · CLI</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Client Config Card (for non-tunnel / production view) ───
 
 interface ClientCardProps {
   readonly icon: string;
@@ -80,152 +303,6 @@ function ClientCard({ icon, iconClass, name, config, hint }: ClientCardProps) {
   );
 }
 
-// ─── Elapsed Time Display ───
-
-function ElapsedTime({ since }: { readonly since: string }) {
-  const [elapsed, setElapsed] = useState("");
-
-  useEffect(() => {
-    const start = new Date(since).getTime();
-    const update = () => {
-      const diff = Math.floor((Date.now() - start) / 1000);
-      const m = Math.floor(diff / 60);
-      const s = diff % 60;
-      setElapsed(m > 0 ? `${m}m ${s}s` : `${s}s`);
-    };
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, [since]);
-
-  return <span>{elapsed}</span>;
-}
-
-// ─── Tunnel Section ───
-
-function TunnelSection() {
-  const result = useTunnel();
-  const { showToast } = useToast();
-
-  // Not on localhost — don't render
-  if (!result) return null;
-
-  const { tunnel, cloudflaredInstalled, loading, startTunnel, stopTunnel } = result;
-
-  if (loading) return null;
-
-  const handleStart = async () => {
-    showToast("Starting tunnel...", "info");
-    await startTunnel();
-  };
-
-  const handleStop = async () => {
-    await stopTunnel();
-    showToast("Tunnel stopped — configs reverted to localhost", "info");
-  };
-
-  const handleCopyUrl = async () => {
-    if (tunnel.url) {
-      try {
-        await navigator.clipboard.writeText(tunnel.url);
-        showToast("Tunnel URL copied!", "success");
-      } catch {
-        // Clipboard write failed
-      }
-    }
-  };
-
-  return (
-    <div className={styles.tunnelSection}>
-      <div className={styles.tunnelHeader}>
-        <div className={styles.tunnelIcon}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path d="M12 13v5m0 0l-2-2m2 2l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <div>
-          <div className={styles.tunnelTitle}>Local Tunnel</div>
-          <div className={styles.tunnelSubtitle}>
-            Expose localhost to external MCP clients via Cloudflare
-          </div>
-        </div>
-      </div>
-
-      {/* Not installed */}
-      {cloudflaredInstalled === false && (
-        <div className={styles.tunnelInstall}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <div>
-            <strong>cloudflared</strong> is required.{" "}
-            <code>brew install cloudflare/cloudflare/cloudflared</code>
-          </div>
-        </div>
-      )}
-
-      {/* Error state */}
-      {tunnel.status === "error" && (
-        <div className={styles.tunnelError}>
-          {tunnel.error}
-        </div>
-      )}
-
-      {/* Stopped */}
-      {tunnel.status === "stopped" && cloudflaredInstalled !== false && (
-        <button
-          className={styles.tunnelBtn}
-          onClick={handleStart}
-        >
-          Start Tunnel
-        </button>
-      )}
-
-      {/* Starting */}
-      {tunnel.status === "starting" && (
-        <div className={styles.tunnelStarting}>
-          <div className={`${styles.tunnelDot} ${styles.tunnelDotStarting}`} />
-          <span>Waiting for Cloudflare to assign a URL...</span>
-        </div>
-      )}
-
-      {/* Active */}
-      {tunnel.status === "active" && tunnel.url && (
-        <div className={styles.tunnelActive}>
-          <div className={styles.tunnelStatusRow}>
-            <div className={`${styles.tunnelDot} ${styles.tunnelDotActive}`} />
-            <span className={styles.tunnelStatusText}>Tunnel Active</span>
-            {tunnel.startedAt && (
-              <span className={styles.tunnelMeta}>
-                <ElapsedTime since={tunnel.startedAt} />
-              </span>
-            )}
-          </div>
-          <div className={styles.tunnelUrl}>
-            <code>{tunnel.url}</code>
-            <button className={styles.tunnelCopyBtn} onClick={handleCopyUrl}>
-              Copy
-            </button>
-          </div>
-          <div className={styles.tunnelNote}>
-            Config snippets below now use this tunnel URL
-          </div>
-          <button className={styles.tunnelBtnStop} onClick={handleStop}>
-            Stop Tunnel
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Component ───
 
 export function McpConnect() {
@@ -239,6 +316,8 @@ export function McpConnect() {
   const baseUrl = tunnelUrl ?? (typeof window !== "undefined" ? window.location.origin : "https://your-domain.com");
   const isLocal = typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+  const currentToken = token?.apiKey ?? "YOUR_TOKEN";
 
   const handleGenerate = useCallback(async () => {
     if (!tokenName.trim()) {
@@ -280,11 +359,12 @@ export function McpConnect() {
     }
   }, [showToast]);
 
-  const currentToken = token?.apiKey ?? "YOUR_TOKEN";
-
   return (
     <div className={styles.container}>
-      {/* Section 1: Token Generator */}
+      {/* Section 1: Tunnel Hero (localhost only) */}
+      {isLocal && <TunnelHero baseUrl={baseUrl} currentToken={currentToken} />}
+
+      {/* Section 2: Token Generator */}
       <div className={styles.tokenSection}>
         <div className={styles.tokenHeader}>
           <div className={styles.tokenIcon}>
@@ -296,9 +376,6 @@ export function McpConnect() {
         </div>
         <div className={styles.tokenSubtitle}>
           Generate a token for yourself or your team, then share the config snippet for their AI client.
-        </div>
-        <div className={styles.sharingHint}>
-          Share this connection with anyone on your team. Each person pastes the config into their own AI client and gets instant access to Orbit Image&apos;s brand-aware generation tools.
         </div>
 
         {!token ? (
@@ -332,59 +409,55 @@ export function McpConnect() {
               </svg>
               Save this token now — it won&apos;t be shown again.
             </div>
-            <div className={styles.sharingTip}>
-              You can share this token and the config below with teammates who need access.
-            </div>
           </div>
         )}
       </div>
 
-      {/* Section 2: Tunnel Controls (localhost only) */}
-      {isLocal && <TunnelSection />}
+      {/* Section 3: Client Config Cards (shown when tunnel is NOT active on localhost, or always on production) */}
+      {(!isLocal || !tunnelUrl) && (
+        <>
+          <div className={styles.cardsTitle}>
+            {token && isLocal && !tunnelUrl
+              ? "Config preview — start a tunnel for external access"
+              : token
+                ? "Share this config"
+                : "Config preview — generate a token to share"}
+          </div>
 
-      {/* Section 3: Client Config Cards */}
-      <div className={styles.cardsTitle}>
-        {token && tunnelUrl
-          ? "Share this config (using tunnel URL)"
-          : token && isLocal && !tunnelUrl
-            ? "Config preview — start a tunnel for external access"
-            : token
-              ? "Share this config"
-              : "Config preview — generate a token to share"}
-      </div>
+          <div className={styles.cardsGrid}>
+            <ClientCard
+              icon="C"
+              iconClass={styles.cardIconClaude}
+              name="Claude Desktop"
+              config={getClaudeDesktopConfig(baseUrl, currentToken)}
+              hint={<>Paste into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> — share with any teammate using Claude Desktop</>}
+            />
+            <ClientCard
+              icon="▸"
+              iconClass={styles.cardIconCursor}
+              name="Cursor"
+              config={getCursorConfig(baseUrl, currentToken)}
+              hint={<>Paste into <code>Cursor Settings → MCP Servers</code> — works for any Cursor user on your team</>}
+            />
+            <ClientCard
+              icon=">"
+              iconClass={styles.cardIconCode}
+              name="Claude Code (CLI)"
+              config={getClaudeCodeConfig(baseUrl, currentToken)}
+              hint={<>Add to your project&apos;s <code>.mcp.json</code> file — commit to repo so your whole team gets it</>}
+            />
+            <ClientCard
+              icon="{"
+              iconClass={styles.cardIconGeneric}
+              name="Other MCP Client"
+              config={getGenericMcpConfig(baseUrl, currentToken)}
+              hint="Share the URL and token with anyone using an MCP-compatible client"
+            />
+          </div>
+        </>
+      )}
 
-      <div className={styles.cardsGrid}>
-        <ClientCard
-          icon="C"
-          iconClass={styles.cardIconClaude}
-          name="Claude Desktop"
-          config={getClaudeDesktopConfig(baseUrl, currentToken)}
-          hint={<>Paste into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> — share with any teammate using Claude Desktop</>}
-        />
-        <ClientCard
-          icon="▸"
-          iconClass={styles.cardIconCursor}
-          name="Cursor"
-          config={getCursorConfig(baseUrl, currentToken)}
-          hint={<>Paste into <code>Cursor Settings → MCP Servers</code> — works for any Cursor user on your team</>}
-        />
-        <ClientCard
-          icon=">"
-          iconClass={styles.cardIconCode}
-          name="Claude Code (CLI)"
-          config={getClaudeCodeConfig(baseUrl, currentToken)}
-          hint={<>Add to your project&apos;s <code>.mcp.json</code> file — commit to repo so your whole team gets it</>}
-        />
-        <ClientCard
-          icon="{"
-          iconClass={styles.cardIconGeneric}
-          name="Other MCP Client"
-          config={getGenericMcpConfig(baseUrl, currentToken)}
-          hint="Share the URL and token with anyone using an MCP-compatible client"
-        />
-      </div>
-
-      {/* Section 3: Available Tools */}
+      {/* Section 4: Available Tools */}
       <div className={styles.toolsSection}>
         <div className={styles.toolsTitle}>Available Tools</div>
         <div className={styles.toolsList}>

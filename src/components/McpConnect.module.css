@@ -418,7 +418,315 @@
   margin-top: var(--space-2);
 }
 
-/* ─── Tunnel Section ─── */
+/* ─── Tunnel Hero Card ─── */
+
+.heroCard {
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  background: var(--bg-card);
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+/* ── Stopped: Informational Split ── */
+
+.heroSplit {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.heroLeft {
+  flex: 1;
+}
+
+.heroRight {
+  width: 140px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.heroStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.heroStatusLabel {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.heroDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.heroDotStopped {
+  background: #475569;
+}
+
+.heroDotStarting {
+  background: var(--warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.heroDotActive {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.heroTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.heroDesc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 var(--space-4);
+}
+
+.heroError {
+  padding: var(--space-2) var(--space-3);
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--error);
+  margin-bottom: var(--space-3);
+}
+
+.heroInstall {
+  padding: var(--space-2) var(--space-3);
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--warning);
+  line-height: 1.5;
+  margin-bottom: var(--space-3);
+}
+
+.heroInstall code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+.heroStartingMsg {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.heroStartBtn {
+  padding: var(--space-2) var(--space-5);
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--duration-fast);
+}
+
+.heroStartBtn:hover {
+  opacity: 0.9;
+}
+
+/* ── Right: Cloud + Client icons ── */
+
+.heroCloudIcon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #60a5fa;
+}
+
+.heroClients {
+  margin-top: var(--space-3);
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.heroClientDot {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.heroClientLabel {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #475569;
+}
+
+/* ── Active: Integrated Share Grid ── */
+
+.heroActive {
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.heroStatusBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.heroStatusText {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--success);
+}
+
+.heroElapsed {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.heroStopBtn {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.heroStopBtn:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+/* ── Share Grid ── */
+
+.shareGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 768px) {
+  .shareGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroSplit {
+    flex-direction: column;
+  }
+
+  .heroRight {
+    width: 100%;
+  }
+}
+
+.shareCard {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  text-align: left;
+  width: 100%;
+}
+
+.shareCard:hover {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.shareCardCopied {
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  background: rgba(52, 211, 153, 0.06) !important;
+}
+
+.shareCardTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.shareCardIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.shareIconClaude {
+  background: rgba(204, 133, 61, 0.15);
+  color: #cc853d;
+}
+
+.shareIconCursor {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.shareIconCode {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.shareIconGeneric {
+  background: rgba(161, 161, 170, 0.15);
+  color: #a1a1aa;
+}
+
+.shareCardName {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.shareCardAction {
+  font-size: 11px;
+  color: var(--success);
+}
+
+/* ─── Legacy Tunnel Section (kept for backwards compat) ─── */
 
 .tunnelSection {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.04));

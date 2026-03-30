@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
 import { LoginForm } from "@/components/LoginForm";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { useTunnel } from "@/lib/client/useTunnel";
 
 export default function Home() {
   return (
@@ -21,9 +22,16 @@ export default function Home() {
 function HomeContent() {
   const { user, loading, isAdmin } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dashboardTab, setDashboardTab] = useState<string | undefined>();
+  const tunnelResult = useTunnel();
+  const tunnelActive = tunnelResult?.tunnel.status === "active";
 
   const handleSettingsClose = useCallback(() => {
     setSettingsOpen(false);
+  }, []);
+
+  const handleTunnelClick = useCallback(() => {
+    setDashboardTab("connect");
   }, []);
 
   if (loading) {
@@ -59,11 +67,13 @@ function HomeContent() {
     <>
       <Header
         onSettingsClick={() => setSettingsOpen(true)}
+        onTunnelClick={handleTunnelClick}
         showStudioLink
         showAdminLink={isAdmin}
+        tunnelActive={tunnelActive}
       />
 
-      <Dashboard />
+      <Dashboard initialTab={dashboardTab} />
 
       <SettingsModal isOpen={settingsOpen} onClose={handleSettingsClose} />
     </>
