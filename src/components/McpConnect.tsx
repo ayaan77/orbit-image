@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
+import { useTunnel } from "@/lib/client/useTunnel";
 import {
   getClaudeDesktopConfig,
   getCursorConfig,
@@ -35,11 +36,14 @@ const EXAMPLE_PROMPTS = [
 function CopyButton({ text, label }: { readonly text: string; readonly label?: string }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text).then(() => {
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch {
+      // Clipboard write failed (permissions or insecure context)
+    }
   }, [text]);
 
   return (
@@ -76,13 +80,165 @@ function ClientCard({ icon, iconClass, name, config, hint }: ClientCardProps) {
   );
 }
 
+// ─── Elapsed Time Display ───
+
+function ElapsedTime({ since }: { readonly since: string }) {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    const start = new Date(since).getTime();
+    const update = () => {
+      const diff = Math.floor((Date.now() - start) / 1000);
+      const m = Math.floor(diff / 60);
+      const s = diff % 60;
+      setElapsed(m > 0 ? `${m}m ${s}s` : `${s}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [since]);
+
+  return <span>{elapsed}</span>;
+}
+
+// ─── Tunnel Section ───
+
+function TunnelSection() {
+  const result = useTunnel();
+  const { showToast } = useToast();
+
+  // Not on localhost — don't render
+  if (!result) return null;
+
+  const { tunnel, cloudflaredInstalled, loading, startTunnel, stopTunnel } = result;
+
+  if (loading) return null;
+
+  const handleStart = async () => {
+    showToast("Starting tunnel...", "info");
+    await startTunnel();
+  };
+
+  const handleStop = async () => {
+    await stopTunnel();
+    showToast("Tunnel stopped — configs reverted to localhost", "info");
+  };
+
+  const handleCopyUrl = async () => {
+    if (tunnel.url) {
+      try {
+        await navigator.clipboard.writeText(tunnel.url);
+        showToast("Tunnel URL copied!", "success");
+      } catch {
+        // Clipboard write failed
+      }
+    }
+  };
+
+  return (
+    <div className={styles.tunnelSection}>
+      <div className={styles.tunnelHeader}>
+        <div className={styles.tunnelIcon}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path d="M12 13v5m0 0l-2-2m2 2l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div>
+          <div className={styles.tunnelTitle}>Local Tunnel</div>
+          <div className={styles.tunnelSubtitle}>
+            Expose localhost to external MCP clients via Cloudflare
+          </div>
+        </div>
+      </div>
+
+      {/* Not installed */}
+      {cloudflaredInstalled === false && (
+        <div className={styles.tunnelInstall}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <div>
+            <strong>cloudflared</strong> is required.{" "}
+            <code>brew install cloudflare/cloudflare/cloudflared</code>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {tunnel.status === "error" && (
+        <div className={styles.tunnelError}>
+          {tunnel.error}
+        </div>
+      )}
+
+      {/* Stopped */}
+      {tunnel.status === "stopped" && cloudflaredInstalled !== false && (
+        <button
+          className={styles.tunnelBtn}
+          onClick={handleStart}
+        >
+          Start Tunnel
+        </button>
+      )}
+
+      {/* Starting */}
+      {tunnel.status === "starting" && (
+        <div className={styles.tunnelStarting}>
+          <div className={`${styles.tunnelDot} ${styles.tunnelDotStarting}`} />
+          <span>Waiting for Cloudflare to assign a URL...</span>
+        </div>
+      )}
+
+      {/* Active */}
+      {tunnel.status === "active" && tunnel.url && (
+        <div className={styles.tunnelActive}>
+          <div className={styles.tunnelStatusRow}>
+            <div className={`${styles.tunnelDot} ${styles.tunnelDotActive}`} />
+            <span className={styles.tunnelStatusText}>Tunnel Active</span>
+            {tunnel.startedAt && (
+              <span className={styles.tunnelMeta}>
+                <ElapsedTime since={tunnel.startedAt} />
+              </span>
+            )}
+          </div>
+          <div className={styles.tunnelUrl}>
+            <code>{tunnel.url}</code>
+            <button className={styles.tunnelCopyBtn} onClick={handleCopyUrl}>
+              Copy
+            </button>
+          </div>
+          <div className={styles.tunnelNote}>
+            Config snippets below now use this tunnel URL
+          </div>
+          <button className={styles.tunnelBtnStop} onClick={handleStop}>
+            Stop Tunnel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───
+
 export function McpConnect() {
   const { showToast } = useToast();
   const [tokenName, setTokenName] = useState("my-mcp-token");
   const [generating, setGenerating] = useState(false);
   const [token, setToken] = useState<GeneratedToken | null>(null);
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
+  const tunnelResult = useTunnel();
+  const tunnelUrl = tunnelResult?.tunnel.status === "active" ? tunnelResult.tunnel.url : null;
+  const baseUrl = tunnelUrl ?? (typeof window !== "undefined" ? window.location.origin : "https://your-domain.com");
+  const isLocal = typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
   const handleGenerate = useCallback(async () => {
     if (!tokenName.trim()) {
@@ -115,10 +271,13 @@ export function McpConnect() {
     }
   }, [tokenName, baseUrl, showToast]);
 
-  const handleCopyPrompt = useCallback((prompt: string) => {
-    navigator.clipboard.writeText(prompt).then(() => {
+  const handleCopyPrompt = useCallback(async (prompt: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
       showToast("Prompt copied!", "success");
-    });
+    } catch {
+      // Clipboard write failed
+    }
   }, [showToast]);
 
   const currentToken = token?.apiKey ?? "YOUR_TOKEN";
@@ -133,10 +292,13 @@ export function McpConnect() {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className={styles.tokenTitle}>Connect via MCP</div>
+          <div className={styles.tokenTitle}>Connect &amp; Share via MCP</div>
         </div>
         <div className={styles.tokenSubtitle}>
-          Generate a token, then copy-paste the config into your AI client.
+          Generate a token for yourself or your team, then share the config snippet for their AI client.
+        </div>
+        <div className={styles.sharingHint}>
+          Share this connection with anyone on your team. Each person pastes the config into their own AI client and gets instant access to Orbit Image&apos;s brand-aware generation tools.
         </div>
 
         {!token ? (
@@ -145,7 +307,7 @@ export function McpConnect() {
               className={styles.tokenInput}
               value={tokenName}
               onChange={(e) => setTokenName(e.target.value)}
-              placeholder="Token name (e.g. my-claude-desktop)"
+              placeholder="e.g. sarah-cursor, design-team-claude"
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               disabled={generating}
             />
@@ -170,13 +332,25 @@ export function McpConnect() {
               </svg>
               Save this token now — it won&apos;t be shown again.
             </div>
+            <div className={styles.sharingTip}>
+              You can share this token and the config below with teammates who need access.
+            </div>
           </div>
         )}
       </div>
 
-      {/* Section 2: Client Config Cards */}
+      {/* Section 2: Tunnel Controls (localhost only) */}
+      {isLocal && <TunnelSection />}
+
+      {/* Section 3: Client Config Cards */}
       <div className={styles.cardsTitle}>
-        {token ? "Copy config for your client" : "Config preview (generate a token first)"}
+        {token && tunnelUrl
+          ? "Share this config (using tunnel URL)"
+          : token && isLocal && !tunnelUrl
+            ? "Config preview — start a tunnel for external access"
+            : token
+              ? "Share this config"
+              : "Config preview — generate a token to share"}
       </div>
 
       <div className={styles.cardsGrid}>
@@ -185,28 +359,28 @@ export function McpConnect() {
           iconClass={styles.cardIconClaude}
           name="Claude Desktop"
           config={getClaudeDesktopConfig(baseUrl, currentToken)}
-          hint={<>Paste into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code></>}
+          hint={<>Paste into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> — share with any teammate using Claude Desktop</>}
         />
         <ClientCard
           icon="▸"
           iconClass={styles.cardIconCursor}
           name="Cursor"
           config={getCursorConfig(baseUrl, currentToken)}
-          hint={<>Paste into <code>Cursor Settings → MCP Servers</code></>}
+          hint={<>Paste into <code>Cursor Settings → MCP Servers</code> — works for any Cursor user on your team</>}
         />
         <ClientCard
           icon=">"
           iconClass={styles.cardIconCode}
           name="Claude Code (CLI)"
           config={getClaudeCodeConfig(baseUrl, currentToken)}
-          hint={<>Add to your project&apos;s <code>.mcp.json</code> file</>}
+          hint={<>Add to your project&apos;s <code>.mcp.json</code> file — commit to repo so your whole team gets it</>}
         />
         <ClientCard
           icon="{"
           iconClass={styles.cardIconGeneric}
           name="Other MCP Client"
           config={getGenericMcpConfig(baseUrl, currentToken)}
-          hint="Use the URL and token with any MCP-compatible client"
+          hint="Share the URL and token with anyone using an MCP-compatible client"
         />
       </div>
 

@@ -172,7 +172,7 @@ export function TokenTable() {
               className={styles.formInput}
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              placeholder="my-mcp-token"
+              placeholder="e.g. sarah-claude, design-team"
             />
           </div>
           <div className={styles.formGroup}>
@@ -234,11 +234,14 @@ export function TokenTable() {
           <span className={styles.createdWarning}>
             Save these now. The API key will not be shown again.
           </span>
+          <div className={styles.createdShareGuide}>
+            To connect a teammate: share the API Key and MCP URL above. They add both to their AI client&apos;s MCP config. See the <strong>Connect</strong> page for ready-made config snippets.
+          </div>
         </div>
       )}
 
       {tokens.length === 0 ? (
-        <div className={styles.empty}>No tokens found</div>
+        <div className={styles.empty}>No tokens yet — create one to connect your team&apos;s AI clients to Orbit Image.</div>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
