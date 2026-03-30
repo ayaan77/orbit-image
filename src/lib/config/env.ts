@@ -27,8 +27,6 @@ const envSchema = z.object({
   DEFAULT_PROVIDER: z.enum(["openai", "replicate", "mock"]).default("openai"),
   XAI_API_KEY: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  ADMIN_USERNAME: z.string().optional(),
-  ADMIN_PASSWORD: z.string().optional(),
   CORS_ALLOWED_ORIGINS: z.string().optional(),
 });
 

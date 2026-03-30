@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/auth/users";
 import { createSession, buildSessionCookie, cleanExpiredSessions } from "@/lib/auth/sessions";
+import { checkIpRateLimit } from "@/lib/middleware/ip-rate-limit";
 
 export async function POST(request: Request): Promise<NextResponse> {
+  // Rate limit: 10 attempts per 15 minutes per IP
+  const limited = checkIpRateLimit(request, 10, 15 * 60_000, "login");
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { username, password } = body;

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSession, getSessionIdFromRequest } from "@/lib/auth/sessions";
+import { checkIpRateLimit } from "@/lib/middleware/ip-rate-limit";
 
 export async function GET(request: Request): Promise<NextResponse> {
+  // Rate limit: 60 requests per minute per IP
+  const limited = checkIpRateLimit(request, 60, 60_000, "auth-me");
+  if (limited) return limited;
+
   const sessionId = getSessionIdFromRequest(request);
 
   if (!sessionId) {

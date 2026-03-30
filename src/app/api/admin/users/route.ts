@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { isAdmin, unauthorizedResponse } from "@/lib/middleware/admin-auth";
 import { corsHeaders } from "@/lib/middleware/cors";
 import { createUser, listUsers, updateUser, deleteUser } from "@/lib/auth/users";
+
+const UpdateUserSchema = z.object({
+  userId: z.string().min(1),
+  username: z.string().min(1).max(100).optional(),
+  email: z.string().email().nullable().optional(),
+  role: z.enum(["admin", "user"]).optional(),
+  rateLimit: z.number().int().positive().nullable().optional(),
+  monthlyBudgetUsd: z.number().positive().nullable().optional(),
+  active: z.boolean().optional(),
+  password: z.string().min(6).optional(),
+});
 
 export async function GET(request: Request): Promise<NextResponse> {
   const headers = corsHeaders(request);
@@ -61,15 +73,16 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
   try {
     const body = await request.json();
-    const { userId, ...updates } = body;
-
-    if (!userId) {
+    const parsed = UpdateUserSchema.safeParse(body);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_REQUEST", message: "userId is required" } },
+        { success: false, error: { code: "INVALID_REQUEST", message: issues } },
         { status: 400, headers },
       );
     }
 
+    const { userId, ...updates } = parsed.data;
     const user = await updateUser(userId, updates);
     if (!user) {
       return NextResponse.json(

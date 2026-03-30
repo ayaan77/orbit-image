@@ -57,7 +57,7 @@ interface ClientCardProps {
   readonly iconClass: string;
   readonly name: string;
   readonly config: string;
-  readonly hint: string;
+  readonly hint: React.ReactNode;
 }
 
 function ClientCard({ icon, iconClass, name, config, hint }: ClientCardProps) {
@@ -71,7 +71,7 @@ function ClientCard({ icon, iconClass, name, config, hint }: ClientCardProps) {
         <CopyButton text={config} />
         <pre>{config}</pre>
       </div>
-      <div className={styles.cardHint} dangerouslySetInnerHTML={{ __html: hint }} />
+      <div className={styles.cardHint}>{hint}</div>
     </div>
   );
 }
@@ -104,9 +104,8 @@ export function McpConnect() {
 
       const data = await res.json();
       const apiKey = data.apiKey ?? "";
-      const mcpUrl = data.mcpUrl ?? `${baseUrl}/api/mcp?token=${apiKey}`;
 
-      setToken({ apiKey, mcpUrl });
+      setToken({ apiKey, mcpUrl: `${baseUrl}/api/mcp` });
       showToast("Token created! Copy your config below.", "success", 4000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create token";
@@ -122,7 +121,7 @@ export function McpConnect() {
     });
   }, [showToast]);
 
-  const mcpUrl = token?.mcpUrl ?? `${baseUrl}/api/mcp?token=YOUR_TOKEN`;
+  const currentToken = token?.apiKey ?? "YOUR_TOKEN";
 
   return (
     <div className={styles.container}>
@@ -185,28 +184,28 @@ export function McpConnect() {
           icon="C"
           iconClass={styles.cardIconClaude}
           name="Claude Desktop"
-          config={getClaudeDesktopConfig(mcpUrl)}
-          hint='Paste into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>'
+          config={getClaudeDesktopConfig(baseUrl, currentToken)}
+          hint={<>Paste into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code></>}
         />
         <ClientCard
           icon="▸"
           iconClass={styles.cardIconCursor}
           name="Cursor"
-          config={getCursorConfig(mcpUrl)}
-          hint="Paste into <code>Cursor Settings → MCP Servers</code>"
+          config={getCursorConfig(baseUrl, currentToken)}
+          hint={<>Paste into <code>Cursor Settings → MCP Servers</code></>}
         />
         <ClientCard
           icon=">"
           iconClass={styles.cardIconCode}
           name="Claude Code (CLI)"
-          config={getClaudeCodeConfig(mcpUrl)}
-          hint="Add to your project's <code>.mcp.json</code> file"
+          config={getClaudeCodeConfig(baseUrl, currentToken)}
+          hint={<>Add to your project&apos;s <code>.mcp.json</code> file</>}
         />
         <ClientCard
           icon="{"
           iconClass={styles.cardIconGeneric}
           name="Other MCP Client"
-          config={getGenericMcpConfig(`${baseUrl}/api/mcp`, token?.apiKey ?? "YOUR_TOKEN")}
+          config={getGenericMcpConfig(baseUrl, currentToken)}
           hint="Use the URL and token with any MCP-compatible client"
         />
       </div>

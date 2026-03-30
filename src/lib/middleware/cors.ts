@@ -60,6 +60,7 @@ export function corsHeaders(request: Request): Record<string, string> {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": ALLOWED_METHODS,
     "Access-Control-Allow-Headers": ALLOWED_HEADERS,
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": MAX_AGE,
     ...(origin ? { Vary: "Origin" } : {}),
   };

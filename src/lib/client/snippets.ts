@@ -186,44 +186,49 @@ export function getMcpSnippet(opts: Pick<SnippetOptions, "baseUrl" | "apiKey">):
 
 // ─── MCP Client Config Snippets ───
 
-export function getClaudeDesktopConfig(mcpUrl: string): string {
+export function getClaudeDesktopConfig(baseUrl: string, token: string): string {
   return JSON.stringify({
     mcpServers: {
       "orbit-image": {
-        url: mcpUrl,
+        url: `${baseUrl}/api/mcp`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
     },
   }, null, 2);
 }
 
-export function getCursorConfig(mcpUrl: string): string {
+export function getCursorConfig(baseUrl: string, token: string): string {
   return JSON.stringify({
     mcpServers: {
       "orbit-image": {
-        url: mcpUrl,
+        url: `${baseUrl}/api/mcp`,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
     },
   }, null, 2);
 }
 
-export function getClaudeCodeConfig(mcpUrl: string): string {
+export function getClaudeCodeConfig(baseUrl: string, token: string): string {
   return JSON.stringify({
     "orbit-image": {
       type: "http",
-      url: mcpUrl,
+      url: `${baseUrl}/api/mcp`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
   }, null, 2);
 }
 
-export function getGenericMcpConfig(url: string, token: string): string {
-  return `URL: ${url}
-Token: ${token}
+export function getGenericMcpConfig(baseUrl: string, token: string): string {
+  return `URL: ${baseUrl}/api/mcp
 
-# Authorization header:
-Authorization: Bearer ${token}
-
-# Or use token in URL:
-${url}`;
+# Authorization header (required):
+Authorization: Bearer ${token}`;
 }
 
 export function getAsyncSnippet(opts: SnippetOptions): string {

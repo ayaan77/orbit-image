@@ -93,7 +93,7 @@ export function TokenTable() {
       }
       const data = await res.json();
       const apiKey = data.apiKey ?? "";
-      const mcpUrl = data.mcpUrl ?? (apiKey ? `${window.location.origin}/api/mcp?token=${apiKey}` : "");
+      const mcpUrl = data.mcpUrl ?? `${window.location.origin}/api/mcp`;
       setCreated({ apiKey, mcpUrl });
       setCreateForm(EMPTY_FORM);
       showToast("Token created -- save the key now, it won't be shown again", "success", 6000);

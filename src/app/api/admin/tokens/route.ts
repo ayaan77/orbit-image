@@ -59,14 +59,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       monthlyBudgetUsd,
     });
 
-    // Build the MCP URL for easy sharing
-    const mcpUrl = `${new URL(request.url).origin}/api/mcp?token=${rawKey}`;
-
     return NextResponse.json(
       {
         success: true,
         apiKey: rawKey,
-        mcpUrl,
+        mcpUrl: `${new URL(request.url).origin}/api/mcp`,
         token,
       },
       { status: 201, headers },

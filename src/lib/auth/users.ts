@@ -162,8 +162,12 @@ export async function updateUser(
 
   if (sets.length === 0) return getUserById(id);
 
-  // Build dynamic update — Neon tagged template doesn't support dynamic columns,
-  // so we construct a safe parameterized query
+  // Allowlist guard — only these columns may be updated via dynamic query
+  const ALLOWED_COLUMNS = new Set(["username", "email", "role", "rate_limit", "monthly_budget_usd", "active", "password_hash"]);
+  for (const col of sets) {
+    if (!ALLOWED_COLUMNS.has(col)) throw new Error(`Illegal column in update: ${col}`);
+  }
+
   const setClauses = sets.map((col, i) => `${col} = $${i + 2}`).join(", ");
   const query = `UPDATE users SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`;
   const rows = await db.query(query, [id, ...values]);

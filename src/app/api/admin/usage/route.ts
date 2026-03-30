@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isMasterKey, unauthorizedResponse } from "@/lib/middleware/admin-auth";
 import { getRequestId, requestIdHeaders } from "@/lib/middleware/request-id";
 import { getDb } from "@/lib/storage/db";
+import { createLogger } from "@/lib/logging/logger";
 
 /**
  * Admin usage query — protected by master key only.
@@ -89,7 +90,9 @@ export async function GET(request: Request): Promise<NextResponse> {
       { headers },
     );
   } catch (error) {
-    console.error("[admin/usage] Query error:", error);
+    createLogger({ module: "admin-usage" }).error("Query error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to query usage logs" } },
       { status: 500, headers }

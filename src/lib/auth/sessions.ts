@@ -114,7 +114,9 @@ export function getSessionIdFromRequest(request: Request): string | null {
   if (!cookieHeader) return null;
 
   const match = cookieHeader.match(/(?:^|;\s*)orbit-session=([^;]+)/);
-  return match ? match[1] : null;
+  const id = match ? match[1] : null;
+  // Session IDs are 64 hex chars — reject anything else to avoid unnecessary DB lookups
+  return id && /^[0-9a-f]{64}$/.test(id) ? id : null;
 }
 
 /**
