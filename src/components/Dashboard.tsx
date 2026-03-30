@@ -17,12 +17,15 @@ const UsagePanel = dynamic(() => import("@/components/UsagePanel").then(m => ({ 
 const QuickStart = dynamic(() => import("@/components/QuickStart").then(m => ({ default: m.QuickStart })), {
   loading: () => <TabSkeleton />,
 });
+const McpConnect = dynamic(() => import("@/components/McpConnect").then(m => ({ default: m.McpConnect })), {
+  loading: () => <TabSkeleton />,
+});
 
 function TabSkeleton() {
   return <div className={styles.tabSkeleton}><div className={styles.skeletonPulse} /></div>;
 }
 
-type TabId = "overview" | "apps" | "playground" | "usage" | "quickstart";
+type TabId = "overview" | "connect" | "apps" | "playground" | "usage" | "quickstart";
 
 interface TabDef {
   readonly id: TabId;
@@ -40,6 +43,15 @@ const TABS: readonly TabDef[] = [
         <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
         <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    ),
+  },
+  {
+    id: "connect",
+    label: "Connect",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -100,7 +112,7 @@ interface SetupConfig {
   readonly xaiConfigured: boolean;
 }
 
-const VALID_TABS: ReadonlySet<string> = new Set<TabId>(["overview", "apps", "playground", "usage", "quickstart"]);
+const VALID_TABS: ReadonlySet<string> = new Set<TabId>(["overview", "connect", "apps", "playground", "usage", "quickstart"]);
 
 export function Dashboard({ initialTab }: { readonly initialTab?: string } = {}) {
   const [activeTab, setActiveTab] = useState<TabId>(
@@ -128,6 +140,7 @@ export function Dashboard({ initialTab }: { readonly initialTab?: string } = {})
         {/* Content Area */}
         <main className={styles.content}>
           {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
+          {activeTab === "connect" && <McpConnect />}
           {activeTab === "apps" && <AppsPanel />}
           {activeTab === "playground" && <Playground />}
           {activeTab === "usage" && <UsagePanel />}

@@ -1,0 +1,402 @@
+.container {
+  max-width: 900px;
+}
+
+/* ─── Token Generator ─── */
+
+.tokenSection {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(99, 102, 241, 0.04));
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+.tokenHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.tokenIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--gradient-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+}
+
+.tokenTitle {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tokenSubtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+  padding-left: 52px;
+}
+
+.tokenForm {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.tokenInput {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+
+.tokenInput:focus {
+  border-color: var(--accent);
+}
+
+.tokenInput::placeholder {
+  color: var(--text-muted);
+}
+
+.generateBtn {
+  padding: var(--space-2) var(--space-4);
+  background: var(--gradient-accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity var(--duration-fast);
+}
+
+.generateBtn:hover {
+  opacity: 0.9;
+}
+
+.generateBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Token Result ─── */
+
+.tokenResult {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.tokenResultLabel {
+  font-size: var(--text-xs);
+  color: var(--success);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+}
+
+.tokenValue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.tokenValue code {
+  flex: 1;
+  overflow: hidden;
+}
+
+.tokenWarning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--warning);
+}
+
+/* ─── Client Config Cards ─── */
+
+.cardsTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+@media (max-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  transition: border-color var(--duration-fast);
+}
+
+.card:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.cardIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.cardIconClaude {
+  background: rgba(204, 133, 61, 0.15);
+  color: #cc853d;
+}
+
+.cardIconCursor {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.cardIconCode {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.cardIconGeneric {
+  background: rgba(161, 161, 170, 0.15);
+  color: #a1a1aa;
+}
+
+.cardName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cardCode {
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  overflow-x: auto;
+}
+
+.cardCode pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre;
+}
+
+.cardCopyBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: 2px 8px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.cardCopyBtn:hover {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.cardCopied {
+  background: rgba(52, 211, 153, 0.2) !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+  color: var(--success) !important;
+}
+
+.cardHint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.cardHint code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+/* ─── Tools Preview ─── */
+
+.toolsSection {
+  margin-top: var(--space-2);
+}
+
+.toolsTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.toolsList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 768px) {
+  .toolsList {
+    grid-template-columns: 1fr;
+  }
+}
+
+.toolItem {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.toolBadge {
+  padding: 2px 8px;
+  background: rgba(139, 92, 246, 0.12);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+  height: fit-content;
+}
+
+.toolDesc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ─── Example Prompts ─── */
+
+.promptsTitle {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.promptsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.promptItem {
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-style: italic;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.promptItem:hover {
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.2);
+  color: var(--text-primary);
+}
+
+/* ─── Shared ─── */
+
+.copyBtn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+
+.copyBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: var(--space-3);
+  opacity: 0.5;
+}
+
+.emptyText {
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}

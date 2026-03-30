@@ -184,6 +184,48 @@ export function getMcpSnippet(opts: Pick<SnippetOptions, "baseUrl" | "apiKey">):
 //    "Make an ad creative for our SaaS dashboard targeting startup founders"`;
 }
 
+// ─── MCP Client Config Snippets ───
+
+export function getClaudeDesktopConfig(mcpUrl: string): string {
+  return JSON.stringify({
+    mcpServers: {
+      "orbit-image": {
+        url: mcpUrl,
+      },
+    },
+  }, null, 2);
+}
+
+export function getCursorConfig(mcpUrl: string): string {
+  return JSON.stringify({
+    mcpServers: {
+      "orbit-image": {
+        url: mcpUrl,
+      },
+    },
+  }, null, 2);
+}
+
+export function getClaudeCodeConfig(mcpUrl: string): string {
+  return JSON.stringify({
+    "orbit-image": {
+      type: "http",
+      url: mcpUrl,
+    },
+  }, null, 2);
+}
+
+export function getGenericMcpConfig(url: string, token: string): string {
+  return `URL: ${url}
+Token: ${token}
+
+# Authorization header:
+Authorization: Bearer ${token}
+
+# Or use token in URL:
+${url}`;
+}
+
 export function getAsyncSnippet(opts: SnippetOptions): string {
   const { baseUrl, apiKey, webhookUrl } = opts;
   const key = apiKey || "YOUR_API_KEY";

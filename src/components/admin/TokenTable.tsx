@@ -8,27 +8,27 @@ import styles from "./TokenTable.module.css";
 interface McpToken {
   readonly id: string;
   readonly name: string;
-  readonly created_by: string;
+  readonly createdBy: string;
   readonly active: boolean;
-  readonly rate_limit?: number;
+  readonly rateLimit?: number;
   readonly scopes?: readonly string[];
-  readonly created_at: string;
+  readonly createdAt: string;
 }
 
 interface CreateTokenForm {
   name: string;
-  rate_limit: string;
+  rateLimit: string;
   scopes: string;
 }
 
 interface CreatedToken {
-  readonly api_key: string;
-  readonly mcp_url: string;
+  readonly apiKey: string;
+  readonly mcpUrl: string;
 }
 
 const EMPTY_FORM: CreateTokenForm = {
   name: "",
-  rate_limit: "60",
+  rateLimit: "60",
   scopes: "",
 };
 
@@ -49,11 +49,12 @@ export function TokenTable() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/api/admin/tokens?page=${page}&limit=${limit}`);
+      const offset = (page - 1) * limit;
+      const res = await apiFetch(`/api/admin/tokens?offset=${offset}&limit=${limit}`);
       if (!res.ok) throw new Error("Failed to fetch tokens");
       const data = await res.json();
-      setTokens(data.tokens ?? data.data ?? []);
-      setTotal(data.meta?.total ?? data.total ?? 0);
+      setTokens(data.tokens ?? []);
+      setTotal(data.total ?? 0);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load tokens";
       setError(message);
@@ -82,7 +83,7 @@ export function TokenTable() {
         method: "POST",
         body: JSON.stringify({
           name: createForm.name,
-          rate_limit: createForm.rate_limit ? Number(createForm.rate_limit) : undefined,
+          rateLimit: createForm.rateLimit ? Number(createForm.rateLimit) : undefined,
           scopes: scopesList.length > 0 ? scopesList : undefined,
         }),
       });
@@ -91,9 +92,9 @@ export function TokenTable() {
         throw new Error(data.error?.message ?? "Create failed");
       }
       const data = await res.json();
-      const apiKey = data.api_key ?? data.token ?? data.key ?? "";
-      const mcpUrl = data.mcp_url ?? (apiKey ? `${window.location.origin}/mcp?key=${apiKey}` : "");
-      setCreated({ api_key: apiKey, mcp_url: mcpUrl });
+      const apiKey = data.apiKey ?? "";
+      const mcpUrl = data.mcpUrl ?? (apiKey ? `${window.location.origin}/api/mcp?token=${apiKey}` : "");
+      setCreated({ apiKey, mcpUrl });
       setCreateForm(EMPTY_FORM);
       showToast("Token created -- save the key now, it won't be shown again", "success", 6000);
       fetchTokens();
@@ -108,9 +109,9 @@ export function TokenTable() {
   async function handleRevoke(tokenId: string, tokenName: string) {
     if (!confirm(`Revoke token "${tokenName}"? It will become inactive.`)) return;
     try {
-      const res = await apiFetch(`/api/admin/tokens/${tokenId}`, {
+      const res = await apiFetch("/api/admin/tokens", {
         method: "PATCH",
-        body: JSON.stringify({ active: false }),
+        body: JSON.stringify({ tokenId, active: false }),
       });
       if (!res.ok) throw new Error("Revoke failed");
       showToast("Token revoked", "success");
@@ -124,7 +125,10 @@ export function TokenTable() {
   async function handleDelete(tokenId: string, tokenName: string) {
     if (!confirm(`Permanently delete token "${tokenName}"? This cannot be undone.`)) return;
     try {
-      const res = await apiFetch(`/api/admin/tokens/${tokenId}`, { method: "DELETE" });
+      const res = await apiFetch("/api/admin/tokens", {
+        method: "DELETE",
+        body: JSON.stringify({ tokenId, permanent: true }),
+      });
       if (!res.ok) throw new Error("Delete failed");
       showToast("Token deleted", "success");
       fetchTokens();
@@ -176,8 +180,8 @@ export function TokenTable() {
             <input
               className={styles.formInput}
               type="number"
-              value={createForm.rate_limit}
-              onChange={(e) => setCreateForm({ ...createForm, rate_limit: e.target.value })}
+              value={createForm.rateLimit}
+              onChange={(e) => setCreateForm({ ...createForm, rateLimit: e.target.value })}
               placeholder="60"
             />
           </div>
@@ -207,22 +211,22 @@ export function TokenTable() {
         <div className={styles.createdBox}>
           <div>
             <span className={styles.createdLabel}>API Key</span>
-            <div className={styles.createdValue}>{created.api_key}</div>
+            <div className={styles.createdValue}>{created.apiKey}</div>
           </div>
           <div>
             <span className={styles.createdLabel}>MCP URL</span>
-            <div className={styles.createdValue}>{created.mcp_url}</div>
+            <div className={styles.createdValue}>{created.mcpUrl}</div>
           </div>
           <div className={styles.createdActions}>
             <button
               className={`${styles.btn} ${styles.btnGhost}`}
-              onClick={() => copyToClipboard(created.api_key, "API Key")}
+              onClick={() => copyToClipboard(created.apiKey, "API Key")}
             >
               Copy API Key
             </button>
             <button
               className={`${styles.btn} ${styles.btnPrimary}`}
-              onClick={() => copyToClipboard(created.mcp_url, "MCP URL")}
+              onClick={() => copyToClipboard(created.mcpUrl, "MCP URL")}
             >
               Copy MCP URL
             </button>
@@ -253,13 +257,13 @@ export function TokenTable() {
               {tokens.map((token) => (
                 <tr key={token.id}>
                   <td>{token.name}</td>
-                  <td>{token.created_by}</td>
+                  <td>{token.createdBy}</td>
                   <td>
                     <span className={`${styles.badge} ${token.active ? styles.badgeActive : styles.badgeInactive}`}>
                       {token.active ? "Active" : "Revoked"}
                     </span>
                   </td>
-                  <td>{token.rate_limit ?? "--"}</td>
+                  <td>{token.rateLimit ?? "--"}</td>
                   <td>
                     <div className={styles.scopeList}>
                       {token.scopes && token.scopes.length > 0 ? (
@@ -273,7 +277,7 @@ export function TokenTable() {
                       )}
                     </div>
                   </td>
-                  <td>{new Date(token.created_at).toLocaleDateString()}</td>
+                  <td>{new Date(token.createdAt).toLocaleDateString()}</td>
                   <td>
                     <div className={styles.actions}>
                       {token.active && (

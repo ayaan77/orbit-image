@@ -48,11 +48,19 @@ function Sidebar() {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.logo}>
+      <Link href="/" className={styles.logo} style={{ textDecoration: "none" }}>
         <div className={styles.logoIcon}>O</div>
         <span className={styles.logoText}>Orbit Admin</span>
-      </div>
+      </Link>
       <nav className={styles.nav}>
+        <Link
+          href="/"
+          className={styles.navLink}
+          style={{ marginBottom: "var(--space-2)", opacity: 0.7, fontSize: "var(--text-xs)" }}
+        >
+          <span className={styles.navIcon}>{"\u2190"}</span>
+          Back to App
+        </Link>
         {NAV_ITEMS.map((item) => {
           const isActive =
             item.href === "/admin"
