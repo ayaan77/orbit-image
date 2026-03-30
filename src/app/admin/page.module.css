@@ -60,3 +60,11 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+.subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: calc(-1 * var(--space-4));
+  max-width: 600px;
+  line-height: 1.5;
+}
