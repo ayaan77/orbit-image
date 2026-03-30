@@ -22,7 +22,19 @@ const McpConnect = dynamic(() => import("@/components/McpConnect").then(m => ({ 
 });
 
 function TabSkeleton() {
-  return <div className={styles.tabSkeleton}><div className={styles.skeletonPulse} /></div>;
+  return (
+    <div className={styles.tabSkeleton}>
+      <div className={styles.skeletonPulse}>
+        <div className={styles.skeletonHeader} />
+        <div className={styles.skeletonCards}>
+          <div className={styles.skeletonCard} />
+          <div className={styles.skeletonCard} />
+          <div className={styles.skeletonCard} />
+        </div>
+        <div className={styles.skeletonBlock} />
+      </div>
+    </div>
+  );
 }
 
 type TabId = "overview" | "connect" | "apps" | "playground" | "usage" | "quickstart";
@@ -244,7 +256,16 @@ function OverviewTab({ onNavigate }: { readonly onNavigate: (tab: TabId) => void
       )}
 
       {loading ? (
-        <div className={styles.loadingText}>Loading stats...</div>
+        <div className={styles.overviewLoading}>
+          <div className={styles.overviewLoadingCards}>
+            <div className={styles.overviewLoadingCard} />
+            <div className={styles.overviewLoadingCard} />
+            <div className={styles.overviewLoadingCard} />
+            <div className={styles.overviewLoadingCard} />
+          </div>
+          <div className={styles.overviewLoadingSection} />
+          <div className={styles.overviewLoadingSection} />
+        </div>
       ) : (
         <>
           {/* Stat Cards */}

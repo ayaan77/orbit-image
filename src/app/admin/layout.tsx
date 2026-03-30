@@ -27,6 +27,9 @@ function AdminGate({ children }: { readonly children: ReactNode }) {
     return (
       <div className={styles.centered}>
         <div className={styles.spinner} />
+        <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+          Loading admin...
+        </span>
       </div>
     );
   }
