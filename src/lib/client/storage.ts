@@ -18,6 +18,55 @@ export function hasApiKey(): boolean {
   return Boolean(localStorage.getItem(API_KEY_STORAGE_KEY));
 }
 
+// ─── Generation History ───
+
+const HISTORY_KEY = "orbit-history";
+const MAX_HISTORY = 50;
+
+export interface StoredHistoryEntry {
+  readonly id: string;
+  readonly topic: string;
+  readonly purpose: string;
+  readonly brand: string;
+  readonly model?: string;
+  readonly style?: string;
+  readonly imageCount: number;
+  readonly processingTimeMs: number;
+  readonly generatedAt: number;
+  readonly thumbnailBase64?: string;
+}
+
+export function getHistory(): StoredHistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addHistoryEntry(entry: StoredHistoryEntry): void {
+  const history = getHistory();
+  history.unshift(entry);
+  // Keep only the most recent entries
+  const trimmed = history.slice(0, MAX_HISTORY);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+  } catch {
+    // localStorage full — drop oldest entries and retry
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed.slice(0, 20)));
+    } catch {
+      // Silently fail — history is non-critical
+    }
+  }
+}
+
+export function clearHistory(): void {
+  localStorage.removeItem(HISTORY_KEY);
+}
+
 // ─── Admin Detection ───
 
 const ADMIN_STORAGE_KEY = "orbit-is-admin";

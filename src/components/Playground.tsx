@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/client/api";
 import { useToast } from "@/components/Toast";
 import { MODEL_CATALOG, MODEL_IDS, DEFAULT_MODEL, type ModelId } from "@/lib/providers/models";
+import { addHistoryEntry } from "@/lib/client/storage";
 import { ImageGallery } from "./ImageGallery";
 import styles from "./Playground.module.css";
 
@@ -145,6 +146,20 @@ export function Playground() {
           images: data.images as ImageResult[],
           brand: data.brand,
           metadata: data.metadata,
+        });
+
+        // Save to localStorage history
+        addHistoryEntry({
+          id: `gen_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          topic: form.topic,
+          purpose: form.purpose,
+          brand: form.brand,
+          model: form.model,
+          style: form.style || undefined,
+          imageCount: form.count,
+          processingTimeMs: Date.now() - start,
+          generatedAt: Date.now(),
+          thumbnailBase64: data.images[0]?.base64?.slice(0, 200),
         });
         // Build truncated JSON for "View JSON" toggle
         const display = JSON.parse(JSON.stringify(data));

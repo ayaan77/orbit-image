@@ -33,6 +33,7 @@ interface GenerateResult {
 interface SignupResult {
   readonly apiKey: string;
   readonly clientId: string;
+  readonly username?: string;
   readonly limits: { readonly rateLimit: number; readonly monthlyBudgetUsd: number };
 }
 
@@ -438,7 +439,11 @@ export default function StudioPage() {
           <div className={styles.card} style={{ maxWidth: 440 }}>
             {signupResult ? (
               <>
-                <div className={styles.successBanner}>Key created successfully</div>
+                <div className={styles.successBanner}>
+                  {signupResult.username
+                    ? `Account created! You're signed in as ${signupResult.username}`
+                    : "Key created successfully"}
+                </div>
                 <div className={styles.keyBlock}>
                   <div className={styles.keyLabel}>Your API Key</div>
                   <code className={styles.keyValue}>{signupResult.apiKey}</code>
