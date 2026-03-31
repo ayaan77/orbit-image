@@ -107,59 +107,73 @@
   color: var(--text-muted);
 }
 
-/* ─── Options Bar (brands + purpose in one row) ─── */
+/* ─── Brand Bar (above textarea) ─── */
 
-.optionsBar {
+.brandBar {
   display: flex;
-  gap: 5px;
-  margin: var(--space-4) 0 var(--space-2);
-  flex-wrap: wrap;
-  justify-content: center;
   align-items: center;
+  gap: 2px;
+  margin-bottom: var(--space-2);
 }
 
-.optionChip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 11px;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-full);
-  color: var(--text-muted);
+.brandBarLabel {
   font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-right: var(--space-1);
+}
+
+.brandTab {
+  padding: 3px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
   font-family: inherit;
   text-transform: capitalize;
-  white-space: nowrap;
 }
 
-.optionChip:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+.brandTab:hover {
   color: var(--text-secondary);
 }
 
-.optionChipActive {
-  background: rgba(139, 92, 246, 0.1);
-  border-color: rgba(139, 92, 246, 0.3);
+.brandTabActive {
   color: #c4b5fd;
+  border-bottom-color: var(--accent);
 }
 
-.optionDivider {
-  width: 1px;
-  height: 16px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 0 2px;
+/* ─── Purpose Bar (below textarea) ─── */
+
+.purposeBar {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: center;
+  margin: var(--space-2) 0 var(--space-4);
 }
 
-.brandDot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
+.purposeLink {
+  padding: 2px 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+  font-family: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.purposeLink:hover {
+  color: var(--text-secondary);
+}
+
+.purposeLinkActive {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* ─── Generate Button ─── */

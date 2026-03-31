@@ -290,6 +290,36 @@ export default function StudioPage() {
           <div className={styles.inputView}>
             <h1 className={styles.title}>What image do you need?</h1>
 
+            {/* Brand selector — inline above textarea */}
+            {!brandsLoading && brands.length > 0 && (
+              <div className={styles.brandBar}>
+                <span className={styles.brandBarLabel}>for</span>
+                {brands.map((b) => (
+                  <div
+                    key={b.id}
+                    className={styles.brandChipWrapper}
+                    onMouseEnter={() => handleBrandHover(b.id)}
+                    onMouseLeave={() => setHoveredBrand(null)}
+                  >
+                    <button
+                      className={`${styles.brandTab} ${brand === b.id ? styles.brandTabActive : ""}`}
+                      onClick={() => setBrand(brand === b.id ? "" : b.id)}
+                      type="button"
+                    >
+                      {b.id}
+                    </button>
+                    {hoveredBrand === b.id && brandColors[b.id] && brandColors[b.id].length > 0 && (
+                      <div className={styles.brandTooltip}>
+                        {brandColors[b.id].map((color, i) => (
+                          <span key={i} className={styles.brandColorDot} style={{ backgroundColor: color }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             <textarea
               className={styles.topicInput}
               placeholder="A modern SaaS dashboard showing real-time analytics with a dark theme..."
@@ -305,44 +335,12 @@ export default function StudioPage() {
               rows={3}
             />
 
-            {/* Options Bar: Brand + Purpose in one compact row */}
-            <div className={styles.optionsBar}>
-              {/* Brand pills */}
-              {!brandsLoading && brands.length > 0 && (
-                <>
-                  {brands.map((b) => (
-                    <div
-                      key={b.id}
-                      className={styles.brandChipWrapper}
-                      onMouseEnter={() => handleBrandHover(b.id)}
-                      onMouseLeave={() => setHoveredBrand(null)}
-                    >
-                      <button
-                        className={`${styles.optionChip} ${brand === b.id ? styles.optionChipActive : ""}`}
-                        onClick={() => setBrand(brand === b.id ? "" : b.id)}
-                        type="button"
-                      >
-                        <span className={styles.brandDot} />
-                        {b.id}
-                      </button>
-                      {hoveredBrand === b.id && brandColors[b.id] && brandColors[b.id].length > 0 && (
-                        <div className={styles.brandTooltip}>
-                          {brandColors[b.id].map((color, i) => (
-                            <span key={i} className={styles.brandColorDot} style={{ backgroundColor: color }} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  <span className={styles.optionDivider} />
-                </>
-              )}
-
-              {/* Purpose pills */}
+            {/* Purpose — simple text selector below textarea */}
+            <div className={styles.purposeBar}>
               {PURPOSES.map((p) => (
                 <button
                   key={p.id}
-                  className={`${styles.optionChip} ${purpose === p.id ? styles.optionChipActive : ""}`}
+                  className={`${styles.purposeLink} ${purpose === p.id ? styles.purposeLinkActive : ""}`}
                   onClick={() => setPurpose(p.id)}
                   type="button"
                 >
