@@ -8,11 +8,13 @@ import { assemblePrompt } from "@/lib/prompt/engine";
 import { getEnv } from "@/lib/config/env";
 import { resolveModel } from "@/lib/providers/factory";
 import { ImagePurpose, ImageStyle } from "@/types/api";
+import { uploadImageToBlob } from "@/lib/mcp/blob";
 
 const DemoRequestSchema = z.object({
   topic: z.string().min(1).max(500),
   purpose: ImagePurpose,
   style: ImageStyle.optional(),
+  brand: z.string().min(1).max(64).regex(/^[a-z0-9-]+$/).optional(),
 });
 
 /**
@@ -57,7 +59,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const { topic, purpose, style } = parsed.data;
-  const brand = getEnv().DEFAULT_BRAND;
+  const brand = parsed.data.brand ?? getEnv().DEFAULT_BRAND;
   const startTime = Date.now();
 
   // Fetch brand context
@@ -72,9 +74,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!(err instanceof CortexError)) throw err;
   }
 
+  // Determine output format: prefer URL if Blob storage is configured
+  const useUrl = Boolean(getEnv().BLOB_READ_WRITE_TOKEN);
+  const outputFormat = useUrl ? "url" : "base64";
+
   // Assemble prompt — forced: 1 image, standard quality
   const bundle = assemblePrompt(
-    { topic, purpose, style, count: 1, quality: "standard", output_format: "base64" },
+    { topic, purpose, style, count: 1, quality: "standard", output_format: outputFormat },
     context,
   );
 
@@ -84,19 +90,38 @@ export async function POST(request: Request): Promise<NextResponse> {
     const images = await provider.generate(bundle, internalModel);
     const processingTimeMs = Date.now() - startTime;
 
+    // Upload to Blob for URL output, otherwise return base64
+    const responseImages = useUrl
+      ? await Promise.all(
+          images.map(async (img, i) => {
+            const { url } = await uploadImageToBlob(
+              img.data.toString("base64"),
+              img.mimeType,
+              `studio-${Date.now()}-${i}.png`,
+            );
+            return {
+              url,
+              mimeType: img.mimeType,
+              dimensions: img.dimensions,
+            };
+          }),
+        )
+      : images.map((img) => ({
+          base64: img.data.toString("base64"),
+          mimeType: img.mimeType,
+          dimensions: img.dimensions,
+        }));
+
     return NextResponse.json(
       {
         success: true,
-        images: images.map((img) => ({
-          base64: img.data.toString("base64"),
-          prompt: bundle.positive,
-          mimeType: img.mimeType,
-          dimensions: img.dimensions,
-        })),
+        images: responseImages,
+        prompt: bundle.positive,
         brand,
         metadata: {
           processingTimeMs,
-          cortexAvailable: brandContextUsed,
+          brandContextUsed,
+          outputFormat,
           demo: true,
         },
       },
