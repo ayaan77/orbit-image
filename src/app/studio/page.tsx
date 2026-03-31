@@ -305,17 +305,11 @@ export default function StudioPage() {
               rows={3}
             />
 
-            {/* Brand Selector */}
-            {!brandsLoading && brands.length > 0 && (
-              <div className={styles.brandSection}>
-                <div className={styles.brandRow}>
-                  <button
-                    className={`${styles.brandChip} ${!brand ? styles.brandChipActive : ""}`}
-                    onClick={() => setBrand("")}
-                    type="button"
-                  >
-                    Auto
-                  </button>
+            {/* Options Bar: Brand + Purpose in one compact row */}
+            <div className={styles.optionsBar}>
+              {/* Brand pills */}
+              {!brandsLoading && brands.length > 0 && (
+                <>
                   {brands.map((b) => (
                     <div
                       key={b.id}
@@ -324,7 +318,7 @@ export default function StudioPage() {
                       onMouseLeave={() => setHoveredBrand(null)}
                     >
                       <button
-                        className={`${styles.brandChip} ${brand === b.id ? styles.brandChipActive : ""}`}
+                        className={`${styles.optionChip} ${brand === b.id ? styles.optionChipActive : ""}`}
                         onClick={() => setBrand(brand === b.id ? "" : b.id)}
                         type="button"
                       >
@@ -334,91 +328,28 @@ export default function StudioPage() {
                       {hoveredBrand === b.id && brandColors[b.id] && brandColors[b.id].length > 0 && (
                         <div className={styles.brandTooltip}>
                           {brandColors[b.id].map((color, i) => (
-                            <span
-                              key={i}
-                              className={styles.brandColorDot}
-                              style={{ backgroundColor: color }}
-                            />
+                            <span key={i} className={styles.brandColorDot} style={{ backgroundColor: color }} />
                           ))}
                         </div>
                       )}
                     </div>
                   ))}
-                </div>
-                <p className={styles.brandHint}>
-                  {brand
-                    ? <>Images will use <strong>{brand}</strong>&apos;s colors, voice &amp; audience</>
-                    : "Default brand applied — colors and style matched automatically"}
-                </p>
-              </div>
-            )}
+                  <span className={styles.optionDivider} />
+                </>
+              )}
 
-            {/* Purpose */}
-            <div className={styles.purposeRow}>
-              {primaryPurposes.map((p) => (
+              {/* Purpose pills */}
+              {PURPOSES.map((p) => (
                 <button
                   key={p.id}
-                  className={`${styles.purposeChip} ${purpose === p.id ? styles.purposeChipActive : ""}`}
+                  className={`${styles.optionChip} ${purpose === p.id ? styles.optionChipActive : ""}`}
                   onClick={() => setPurpose(p.id)}
                   type="button"
                 >
                   {p.label}
                 </button>
               ))}
-              <button
-                className={`${styles.purposeChip} ${isMoreSelected ? styles.purposeChipActive : ""} ${showMore ? styles.purposeChipActive : ""}`}
-                onClick={() => setShowMore(!showMore)}
-                type="button"
-              >
-                {isMoreSelected ? morePurposes.find((p) => p.id === purpose)?.label : "More ▾"}
-              </button>
             </div>
-
-            {showMore && (
-              <div className={styles.moreRow}>
-                {morePurposes.map((p) => (
-                  <button
-                    key={p.id}
-                    className={`${styles.purposeChip} ${purpose === p.id ? styles.purposeChipActive : ""}`}
-                    onClick={() => { setPurpose(p.id); setShowMore(false); }}
-                    type="button"
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Advanced / Model Selector */}
-            <button
-              className={styles.advancedToggle}
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              type="button"
-            >
-              {showAdvanced ? "Hide advanced" : "Advanced"}
-            </button>
-
-            {showAdvanced && (
-              <div className={styles.modelRow}>
-                <button
-                  className={`${styles.purposeChip} ${model === "" ? styles.purposeChipActive : ""}`}
-                  onClick={() => setModel("")}
-                  type="button"
-                >
-                  Auto
-                </button>
-                {STUDIO_MODELS.map((id) => (
-                  <button
-                    key={id}
-                    className={`${styles.purposeChip} ${model === id ? styles.purposeChipActive : ""}`}
-                    onClick={() => setModel(model === id ? "" : id)}
-                    type="button"
-                  >
-                    {MODEL_CATALOG[id].displayName}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Generate */}
             <button
@@ -440,8 +371,28 @@ export default function StudioPage() {
             {error && <div className={styles.error}>{error}</div>}
 
             <p className={styles.hint}>
-              3 free per day · ⌘Enter to generate
+              3 free per day · ⌘Enter
+              {model && <> · {MODEL_CATALOG[model as keyof typeof MODEL_CATALOG]?.displayName ?? model}</>}
+              {" · "}
+              <button className={styles.advancedLink} onClick={() => setShowAdvanced(!showAdvanced)} type="button">
+                {showAdvanced ? "hide models" : "models"}
+              </button>
             </p>
+
+            {showAdvanced && (
+              <div className={styles.modelRow}>
+                {STUDIO_MODELS.map((id) => (
+                  <button
+                    key={id}
+                    className={`${styles.modelChip} ${model === id ? styles.modelChipActive : ""}`}
+                    onClick={() => setModel(model === id ? "" : id)}
+                    type="button"
+                  >
+                    {MODEL_CATALOG[id].displayName}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* History */}
             {history.length > 0 && (
