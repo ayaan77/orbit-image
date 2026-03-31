@@ -73,6 +73,9 @@ export const openaiProvider: ImageProvider = {
       ? (bundle.quality === "hd" ? "hd" : "standard")
       : (bundle.quality === "hd" ? "high" : "low");
 
+    // gpt-image-1 uses output_format, dall-e-3 uses response_format
+    const isGptImage = model === "gpt-image-1";
+
     const promises = Array.from({ length: bundle.count }, () =>
       client.images.generate({
         model,
@@ -80,13 +83,21 @@ export const openaiProvider: ImageProvider = {
         n: 1,
         size,
         quality,
-        response_format: "b64_json",
+        ...(isGptImage
+          ? { output_format: "png" }
+          : { response_format: "b64_json" }),
       } as Parameters<OpenAI["images"]["generate"]>[0])
     );
 
-    let responses: Array<{ data?: Array<{ b64_json?: string | null }> }>;
+    type ImageResponseItem = {
+      b64_json?: string | null;
+      url?: string | null;
+    };
+    type ImageResponse = { data?: ImageResponseItem[] };
+
+    let responses: ImageResponse[];
     try {
-      responses = (await Promise.all(promises)) as Array<{ data?: Array<{ b64_json?: string | null }> }>;
+      responses = (await Promise.all(promises)) as ImageResponse[];
     } catch (error) {
       throw new ProviderError(
         `OpenAI image generation failed: ${error instanceof Error ? error.message : "Unknown error"}`
@@ -95,16 +106,31 @@ export const openaiProvider: ImageProvider = {
 
     for (const response of responses) {
       const image = response.data?.[0];
-      if (!image?.b64_json) {
+      const b64 = image?.b64_json;
+      const url = image?.url;
+
+      if (!b64 && !url) {
         throw new ProviderError("OpenAI returned no image data");
       }
 
-      results.push({
-        data: Buffer.from(image.b64_json, "base64"),
-        mimeType: "image/png",
-        prompt: bundle.positive,
-        dimensions: actualDimensions,
-      });
+      if (b64) {
+        results.push({
+          data: Buffer.from(b64, "base64"),
+          mimeType: "image/png",
+          prompt: bundle.positive,
+          dimensions: actualDimensions,
+        });
+      } else if (url) {
+        // Fetch the image from the URL
+        const imgRes = await fetch(url);
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        results.push({
+          data: buf,
+          mimeType: "image/png",
+          prompt: bundle.positive,
+          dimensions: actualDimensions,
+        });
+      }
     }
 
     return results;
