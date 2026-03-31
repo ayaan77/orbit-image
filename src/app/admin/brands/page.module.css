@@ -611,3 +611,21 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
+
+/* ─── Missing Context ─── */
+.contextMissing {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.contextTagMissing {
+  opacity: 0.35;
+}
+
+.contextTagCheck {
+  color: #34d399;
+  font-size: 10px;
+  margin-left: 2px;
+}

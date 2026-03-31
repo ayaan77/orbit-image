@@ -301,31 +301,34 @@ function BrandCard({
   onCopySuccess,
   onCopyError,
 }: BrandCardProps) {
-  const [connected, setConnected] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [loadingContext, setLoadingContext] = useState(false);
   const [context, setContext] = useState<BrandContextData | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
 
-  const handleConnect = async () => {
-    if (connected) {
-      setConnected(false);
+  const handleToggle = async () => {
+    if (expanded) {
+      setExpanded(false);
       return;
     }
-    setLoadingContext(true);
-    setContextError(null);
-    try {
-      const res = await apiFetch(`/api/admin/brands/${brand.id}`);
-      if (!res.ok) throw new Error("Failed to fetch brand context");
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message ?? "Cortex error");
-      setContext(data.context);
-      setConnected(true);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to load context";
-      setContextError(msg);
-    } finally {
-      setLoadingContext(false);
+    // Fetch context if not already loaded
+    if (!context) {
+      setLoadingContext(true);
+      setContextError(null);
+      try {
+        const res = await apiFetch(`/api/admin/brands/${brand.id}`);
+        if (!res.ok) throw new Error("Failed to fetch brand context");
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error?.message ?? "Cortex error");
+        setContext(data.context);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to load context";
+        setContextError(msg);
+      } finally {
+        setLoadingContext(false);
+      }
     }
+    setExpanded(true);
   };
 
   const handleCopyId = async () => {
@@ -337,11 +340,17 @@ function BrandCard({
     }
   };
 
+  // Check which context sections have data
+  const hasColours = context?.colours != null;
+  const hasVoice = context?.voice?.brand_voice_rules != null;
+  const hasPersonas = context?.personas != null && context.personas.length > 0;
+  const hasCompany = context?.company != null;
+
   const contextItems = [
-    { label: "Colors", icon: paletteIcon },
-    { label: "Voice", icon: voiceIcon },
-    { label: "Personas", icon: personasIcon },
-    { label: "Proof", icon: proofIcon },
+    { label: "Colors", icon: paletteIcon, available: hasColours },
+    { label: "Voice", icon: voiceIcon, available: hasVoice },
+    { label: "Personas", icon: personasIcon, available: hasPersonas },
+    { label: "Proof", icon: proofIcon, available: hasCompany },
   ];
 
   // Extract color swatches from context
@@ -352,7 +361,7 @@ function BrandCard({
     : [];
 
   return (
-    <div className={`${styles.card} ${connected ? styles.cardConnected : ""}`}>
+    <div className={`${styles.card} ${expanded ? styles.cardConnected : ""}`}>
       <div className={styles.cardGlow} />
 
       {/* Header */}
@@ -369,19 +378,15 @@ function BrandCard({
         </button>
         <div className={styles.badges}>
           {isDefault && <span className={styles.badgeDefault}>Default</span>}
-          <span
-            className={
-              brand.active ? styles.badgeActive : styles.badgeInactive
-            }
-          >
+          <span className={brand.active ? styles.badgeActive : styles.badgeInactive}>
             {brand.active ? "Active" : "Inactive"}
           </span>
         </div>
       </div>
 
-      {/* Summary (always visible) */}
+      {/* Summary */}
       <div className={styles.cardBody}>
-        {!connected && (
+        {!expanded && (
           <p className={styles.contextNote}>
             Brand context (colors, voice, personas, proof) is pulled from Cortex
             at generation time.
@@ -389,7 +394,10 @@ function BrandCard({
         )}
         <div className={styles.contextItems}>
           {contextItems.map((item) => (
-            <span key={item.label} className={styles.contextTag}>
+            <span
+              key={item.label}
+              className={`${styles.contextTag} ${expanded && !item.available ? styles.contextTagMissing : ""}`}
+            >
               <svg
                 className={styles.contextTagIcon}
                 viewBox="0 0 16 16"
@@ -402,25 +410,23 @@ function BrandCard({
                 {item.icon}
               </svg>
               {item.label}
+              {expanded && item.available && <span className={styles.contextTagCheck}>&#10003;</span>}
             </span>
           ))}
         </div>
       </div>
 
-      {/* Expanded Context (when connected) */}
-      {connected && context && (
+      {/* Expanded Context */}
+      {expanded && context && (
         <div className={styles.contextExpanded}>
           {/* Colors */}
-          {colorSwatches.length > 0 && (
-            <div className={styles.contextSection}>
-              <span className={styles.contextSectionTitle}>Brand Colors</span>
+          <div className={styles.contextSection}>
+            <span className={styles.contextSectionTitle}>Brand Colors</span>
+            {colorSwatches.length > 0 ? (
               <div className={styles.colorSwatches}>
                 {colorSwatches.map(([key, color]) => (
                   <div key={key} className={styles.colorSwatch}>
-                    <div
-                      className={styles.colorDot}
-                      style={{ background: color.hex }}
-                    />
+                    <div className={styles.colorDot} style={{ background: color.hex }} />
                     <div className={styles.colorInfo}>
                       <span className={styles.colorName}>{color.name || key}</span>
                       <span className={styles.colorHex}>{color.hex}</span>
@@ -428,58 +434,70 @@ function BrandCard({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <span className={styles.contextMissing}>Not configured in Cortex</span>
+            )}
+          </div>
 
           {/* Voice */}
-          {context.voice?.brand_voice_rules && (
-            <div className={styles.contextSection}>
-              <span className={styles.contextSectionTitle}>Voice</span>
+          <div className={styles.contextSection}>
+            <span className={styles.contextSectionTitle}>Voice</span>
+            {hasVoice ? (
               <div className={styles.voiceDetails}>
-                {context.voice.brand_voice_rules.tone_spectrum && (
-                  <span className={styles.voiceTag}>Tone: {context.voice.brand_voice_rules.tone_spectrum}</span>
+                {context.voice!.brand_voice_rules!.tone_spectrum && (
+                  <span className={styles.voiceTag}>Tone: {context.voice!.brand_voice_rules!.tone_spectrum}</span>
                 )}
-                {context.voice.brand_voice_rules.jargon_level && (
-                  <span className={styles.voiceTag}>Jargon: {context.voice.brand_voice_rules.jargon_level}</span>
+                {context.voice!.brand_voice_rules!.jargon_level && (
+                  <span className={styles.voiceTag}>Jargon: {context.voice!.brand_voice_rules!.jargon_level}</span>
                 )}
-                {context.voice.brand_voice_rules.style_notes?.slice(0, 3).map((note, i) => (
+                {context.voice!.brand_voice_rules!.style_notes?.slice(0, 3).map((note, i) => (
                   <span key={i} className={styles.voiceTag}>{note}</span>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <span className={styles.contextMissing}>Not configured in Cortex</span>
+            )}
+          </div>
 
           {/* Personas */}
-          {context.personas && context.personas.length > 0 && (
-            <div className={styles.contextSection}>
-              <span className={styles.contextSectionTitle}>Personas ({context.personas.length})</span>
+          <div className={styles.contextSection}>
+            <span className={styles.contextSectionTitle}>
+              Personas{hasPersonas ? ` (${context.personas!.length})` : ""}
+            </span>
+            {hasPersonas ? (
               <div className={styles.personaList}>
-                {context.personas.slice(0, 4).map((p) => (
+                {context.personas!.slice(0, 4).map((p) => (
                   <span key={p.id} className={styles.personaTag}>
                     {p.name}{p.role ? ` — ${p.role}` : ""}
                   </span>
                 ))}
-                {context.personas.length > 4 && (
-                  <span className={styles.personaTag}>+{context.personas.length - 4} more</span>
+                {context.personas!.length > 4 && (
+                  <span className={styles.personaTag}>+{context.personas!.length - 4} more</span>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <span className={styles.contextMissing}>Not configured in Cortex</span>
+            )}
+          </div>
 
           {/* Company */}
-          {context.company && (
-            <div className={styles.contextSection}>
-              <span className={styles.contextSectionTitle}>Company</span>
-              <span className={styles.companyName}>
-                {context.company.brand_config?.name ?? context.company.company?.name ?? brand.id}
-              </span>
-              {(context.company.brand_config?.domain ?? context.company.company?.domain) && (
-                <span className={styles.companyDomain}>
-                  {context.company.brand_config?.domain ?? context.company.company?.domain}
+          <div className={styles.contextSection}>
+            <span className={styles.contextSectionTitle}>Company</span>
+            {hasCompany ? (
+              <>
+                <span className={styles.companyName}>
+                  {context.company!.brand_config?.name ?? context.company!.company?.name ?? brand.id}
                 </span>
-              )}
-            </div>
-          )}
+                {(context.company!.brand_config?.domain ?? context.company!.company?.domain) && (
+                  <span className={styles.companyDomain}>
+                    {context.company!.brand_config?.domain ?? context.company!.company?.domain}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className={styles.contextMissing}>Not configured in Cortex</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -488,18 +506,18 @@ function BrandCard({
         <div className={styles.testError}>{contextError}</div>
       )}
 
-      {/* Connect/Disconnect Button */}
+      {/* View Details / Collapse Button */}
       <div className={styles.cardFooter}>
         <button
-          className={connected ? styles.disconnectBtn : styles.connectBtn}
-          onClick={handleConnect}
+          className={expanded ? styles.disconnectBtn : styles.connectBtn}
+          onClick={handleToggle}
           disabled={loadingContext}
         >
           {loadingContext
             ? "Loading..."
-            : connected
-              ? "Disconnect"
-              : "Connect"}
+            : expanded
+              ? "Collapse"
+              : "View Details"}
         </button>
       </div>
     </div>
