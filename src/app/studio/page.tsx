@@ -32,14 +32,21 @@ interface SignupResult {
   readonly limits: { readonly rateLimit: number; readonly monthlyBudgetUsd: number };
 }
 
-const PURPOSES: readonly { readonly id: Purpose; readonly label: string; readonly icon: string }[] = [
-  { id: "blog-hero", label: "Blog Hero", icon: "pencil" },
-  { id: "social-og", label: "Social Media", icon: "share" },
-  { id: "ad-creative", label: "Ad Creative", icon: "megaphone" },
-  { id: "case-study", label: "Case Study", icon: "chart" },
-  { id: "icon", label: "Icon", icon: "star" },
-  { id: "infographic", label: "Infographic", icon: "bars" },
+const PURPOSES: readonly { readonly id: Purpose; readonly label: string; readonly icon: string; readonly desc: string }[] = [
+  { id: "blog-hero", label: "Blog Hero", icon: "pencil", desc: "1536×1024" },
+  { id: "social-og", label: "Social Media", icon: "share", desc: "1200×630" },
+  { id: "ad-creative", label: "Ad Creative", icon: "megaphone", desc: "1080×1080" },
+  { id: "case-study", label: "Case Study", icon: "chart", desc: "1536×1024" },
+  { id: "icon", label: "Icon", icon: "star", desc: "1024×1024" },
+  { id: "infographic", label: "Infographic", icon: "bars", desc: "1024×1536" },
 ];
+
+const EXAMPLE_TOPICS = [
+  "Modern SaaS dashboard for team collaboration",
+  "AI-powered analytics transforming business decisions",
+  "Remote team working across time zones",
+  "Cybersecurity shield protecting cloud infrastructure",
+] as const;
 
 const STYLES: readonly { readonly id: Style; readonly label: string }[] = [
   { id: "photographic", label: "Photographic" },
@@ -246,7 +253,24 @@ export default function StudioPage() {
               maxLength={500}
               rows={3}
             />
-            <div className={styles.charCount}>{topic.length}/500</div>
+            <div className={styles.topicMeta}>
+              <div className={styles.charCount}>{topic.length}/500</div>
+            </div>
+            {!topic && (
+              <div className={styles.suggestions}>
+                <span className={styles.suggestLabel}>Try:</span>
+                {EXAMPLE_TOPICS.map((t) => (
+                  <button
+                    key={t}
+                    className={styles.suggestChip}
+                    onClick={() => setTopic(t)}
+                    type="button"
+                  >
+                    {t.length > 30 ? `${t.slice(0, 30)}...` : t}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={styles.controlGroup}>
@@ -265,7 +289,10 @@ export default function StudioPage() {
                   type="button"
                 >
                   <span className={styles.chipIcon}>{PURPOSE_ICONS[p.icon]}</span>
-                  <span className={styles.chipLabel}>{p.label}</span>
+                  <div className={styles.chipText}>
+                    <span className={styles.chipLabel}>{p.label}</span>
+                    <span className={styles.chipDims}>{p.desc}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -288,6 +315,26 @@ export default function StudioPage() {
               ))}
             </div>
           </div>
+
+          {/* Config Summary */}
+          {canSubmit && (
+            <div className={styles.configSummary}>
+              <span className={styles.configItem}>
+                <strong>{PURPOSES.find((p) => p.id === purpose)?.label}</strong>
+              </span>
+              {brand && (
+                <span className={styles.configItem}>
+                  <span className={styles.configDot} />
+                  {brand}
+                </span>
+              )}
+              {style && (
+                <span className={styles.configItem}>
+                  {style}
+                </span>
+              )}
+            </div>
+          )}
 
           <button
             className={styles.generateBtn}
@@ -331,12 +378,32 @@ export default function StudioPage() {
           {/* Empty state */}
           {!generated && !generateLoading && !error && (
             <div className={styles.emptyState}>
-              <svg className={styles.emptyIcon} width="48" height="48" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <p className={styles.emptyText}>Your image will appear here</p>
+              <div className={styles.emptyIconWrap}>
+                <svg className={styles.emptyIcon} width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <p className={styles.emptyTitle}>Brand-Aware Image Generation</p>
+              <p className={styles.emptyText}>
+                Describe what you need, pick a brand and purpose, then hit Generate.
+                Your brand&apos;s colors, voice, and style are applied automatically.
+              </p>
+              <div className={styles.emptyFeatures}>
+                <span className={styles.emptyFeature}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                  Brand colors &amp; voice
+                </span>
+                <span className={styles.emptyFeature}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                  6 image purposes
+                </span>
+                <span className={styles.emptyFeature}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                  Multiple AI models
+                </span>
+              </div>
             </div>
           )}
 
