@@ -155,31 +155,44 @@ export default function StudioPage() {
               placeholder="A modern SaaS dashboard showing real-time analytics with a dark theme..."
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canSubmit && !loading) {
+                  e.preventDefault();
+                  handleGenerate();
+                }
+              }}
               maxLength={500}
               rows={3}
             />
 
             {/* Brand Selector */}
             {!brandsLoading && brands.length > 0 && (
-              <div className={styles.brandRow}>
-                <button
-                  className={`${styles.brandChip} ${!brand ? styles.brandChipActive : ""}`}
-                  onClick={() => setBrand("")}
-                  type="button"
-                >
-                  Auto
-                </button>
-                {brands.map((b) => (
+              <div className={styles.brandSection}>
+                <div className={styles.brandRow}>
                   <button
-                    key={b.id}
-                    className={`${styles.brandChip} ${brand === b.id ? styles.brandChipActive : ""}`}
-                    onClick={() => setBrand(brand === b.id ? "" : b.id)}
+                    className={`${styles.brandChip} ${!brand ? styles.brandChipActive : ""}`}
+                    onClick={() => setBrand("")}
                     type="button"
                   >
-                    <span className={styles.brandDot} />
-                    {b.id}
+                    Auto
                   </button>
-                ))}
+                  {brands.map((b) => (
+                    <button
+                      key={b.id}
+                      className={`${styles.brandChip} ${brand === b.id ? styles.brandChipActive : ""}`}
+                      onClick={() => setBrand(brand === b.id ? "" : b.id)}
+                      type="button"
+                    >
+                      <span className={styles.brandDot} />
+                      {b.id}
+                    </button>
+                  ))}
+                </div>
+                <p className={styles.brandHint}>
+                  {brand
+                    ? <>Images will use <strong>{brand}</strong>&apos;s colors, voice &amp; audience</>
+                    : "Default brand applied — colors and style matched automatically"}
+                </p>
               </div>
             )}
 
@@ -239,7 +252,7 @@ export default function StudioPage() {
             {error && <div className={styles.error}>{error}</div>}
 
             <p className={styles.hint}>
-              3 free generations per day{brand ? ` · Using ${brand} brand` : " · Brand context applied automatically"}
+              3 free per day · ⌘Enter to generate
             </p>
           </div>
         ) : (
@@ -256,11 +269,17 @@ export default function StudioPage() {
             </div>
 
             <div className={styles.metaBar}>
-              <span className={styles.metaBrand}>
-                {generated.metadata.brandContextUsed
-                  ? <><span className={styles.metaDot} />{generated.brand}</>
-                  : "No brand context"}
-              </span>
+              {generated.metadata.brandContextUsed ? (
+                <span className={styles.metaBrand}>
+                  <span className={styles.metaDotGreen} />
+                  <strong>{generated.brand}</strong> brand colors &amp; voice applied
+                </span>
+              ) : (
+                <span className={styles.metaBrandWarn}>
+                  <span className={styles.metaDotAmber} />
+                  Generic — brand context unavailable
+                </span>
+              )}
               <span className={styles.metaTime}>
                 {(generated.metadata.processingTimeMs / 1000).toFixed(1)}s
               </span>
