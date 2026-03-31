@@ -247,3 +247,50 @@
   color: var(--text-muted);
   line-height: 1.4;
 }
+
+/* ─── Tunnel Banner ─── */
+
+.tunnelBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: #6ee7b7;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.tunnelDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+  animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.tunnelUrl {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #34d399;
+  margin-left: auto;
+}
+
+.tunnelHint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid rgba(59, 130, 246, 0.3);
+}

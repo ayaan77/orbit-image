@@ -33,6 +33,10 @@ export default function BrandsPage() {
   const [defaultBrand, setDefaultBrand] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [brandId, setBrandId] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"idle" | "success" | "error">("idle");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -77,13 +81,136 @@ export default function BrandsPage() {
     fetchData();
   }, [fetchData]);
 
+  const handleTestConnection = useCallback(async () => {
+    const slug = brandId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (!slug) {
+      showToast("Enter a brand ID", "error");
+      return;
+    }
+    setTesting(true);
+    setTestResult("idle");
+    try {
+      const res = await apiFetch(`/api/brands`);
+      if (!res.ok) throw new Error("Failed to reach Cortex");
+      const data: BrandsResponse = await res.json();
+      if (!data.success) throw new Error("Cortex returned an error");
+      const found = data.brands.find((b) => b.id === slug);
+      if (found) {
+        setTestResult("success");
+        showToast(`Brand "${slug}" found in Cortex!`, "success");
+      } else {
+        setTestResult("error");
+        showToast(`Brand "${slug}" not found in Cortex`, "error");
+      }
+    } catch {
+      setTestResult("error");
+      showToast("Could not connect to Cortex", "error");
+    } finally {
+      setTesting(false);
+    }
+  }, [brandId, showToast]);
+
+  const handleAddBrand = useCallback(() => {
+    const slug = brandId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (testResult !== "success") {
+      showToast("Test the connection first", "error");
+      return;
+    }
+    if (brands.some((b) => b.id === slug)) {
+      showToast(`Brand "${slug}" is already in the list`, "info");
+    } else {
+      showToast(`Brand "${slug}" is available in Cortex and ready to use`, "success");
+    }
+    setShowAddForm(false);
+    setBrandId("");
+    setTestResult("idle");
+    fetchData();
+  }, [brandId, testResult, brands, showToast, fetchData]);
+
+  const cortexUrl = brandId.trim()
+    ? `https://cortex.apexure.com/api/mcp?brand=${encodeURIComponent(brandId.trim().toLowerCase())}`
+    : "";
+
   return (
     <div className={styles.container}>
-      <h1 className={styles.heading}>Brands</h1>
-      <p className={styles.subtitle}>
-        Brand data from Cortex. Each brand provides colors, voice, audience, and
-        proof for image generation.
-      </p>
+      <div className={styles.headerRow}>
+        <div>
+          <h1 className={styles.heading}>Brands</h1>
+          <p className={styles.subtitle}>
+            Brand data from Cortex. Each brand provides colors, voice, audience, and
+            proof for image generation.
+          </p>
+        </div>
+        <button
+          className={styles.addBtn}
+          onClick={() => { setShowAddForm(!showAddForm); setTestResult("idle"); }}
+        >
+          {showAddForm ? "Cancel" : "+ Add Brand"}
+        </button>
+      </div>
+
+      {/* ─── Add Brand Form ─── */}
+      {showAddForm && (
+        <div className={styles.addForm}>
+          <div className={styles.addFormHeader}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a2 2 0 002-2c0-.53-.2-1-.55-1.35-.35-.38-.55-.83-.55-1.35a2 2 0 012-2h2.35c3.27 0 5.94-2.5 5.94-5.58C21.29 5.93 17.22 2 12 2z" />
+            </svg>
+            <span>Connect a Brand from Cortex</span>
+          </div>
+
+          <div className={styles.addFormFields}>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Brand ID *</label>
+              <input
+                className={styles.formInput}
+                value={brandId}
+                onChange={(e) => { setBrandId(e.target.value); setTestResult("idle"); }}
+                placeholder="e.g. my-company, apexure"
+              />
+            </div>
+
+            {cortexUrl && (
+              <div className={styles.urlPreview}>
+                <span className={styles.urlLabel}>Cortex MCP URL</span>
+                <code className={styles.urlValue}>{cortexUrl}</code>
+              </div>
+            )}
+
+            {testResult === "success" && (
+              <div className={styles.testSuccess}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Brand found in Cortex — colors, voice, and personas available
+              </div>
+            )}
+
+            {testResult === "error" && (
+              <div className={styles.testError}>
+                Brand not found or Cortex unreachable. Check the brand ID.
+              </div>
+            )}
+          </div>
+
+          <div className={styles.addFormActions}>
+            <button
+              className={styles.testBtn}
+              onClick={handleTestConnection}
+              disabled={testing || !brandId.trim()}
+            >
+              {testing ? "Testing..." : "Test Connection"}
+            </button>
+            <button
+              className={styles.confirmBtn}
+              onClick={handleAddBrand}
+              disabled={testResult !== "success"}
+            >
+              Add Brand
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading && <LoadingSkeleton />}
 

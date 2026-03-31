@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { getClaudeCodeConfig } from "@/lib/client/snippets";
 import { useToast } from "@/components/Toast";
+import { useTunnel } from "@/lib/client/useTunnel";
 import styles from "./page.module.css";
 
 /* ─── Types ─── */
@@ -68,8 +69,12 @@ function getMethodClass(method: string): string {
 
 export default function ConnectPage() {
   const { showToast } = useToast();
+  const tunnelResult = useTunnel();
+  const tunnelUrl = tunnelResult?.tunnel.status === "active" ? tunnelResult.tunnel.url : null;
+  const isLocal = typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
+  const origin = tunnelUrl ?? (typeof window !== "undefined" ? window.location.origin : "https://your-domain.com");
 
   const mcpConfig = useMemo(
     () => getClaudeCodeConfig(origin, "YOUR_TOKEN"),
@@ -94,6 +99,20 @@ export default function ConnectPage() {
       <p className={styles.subtitle}>
         Connect to Orbit Image via MCP or REST API. Generate tokens on the Tokens page.
       </p>
+
+      {/* ─── Tunnel Banner ─── */}
+      {tunnelUrl && (
+        <div className={styles.tunnelBanner}>
+          <span className={styles.tunnelDot} />
+          <span>Tunnel Active — configs below use your public URL</span>
+          <code className={styles.tunnelUrl}>{tunnelUrl}</code>
+        </div>
+      )}
+      {isLocal && !tunnelUrl && (
+        <div className={styles.tunnelHint}>
+          Start a tunnel from the main dashboard to share these configs externally.
+        </div>
+      )}
 
       {/* ─── Section 1: MCP Connection ─── */}
       <div className={styles.section}>
