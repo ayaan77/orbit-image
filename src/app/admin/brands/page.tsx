@@ -506,19 +506,30 @@ function BrandCard({
         <div className={styles.testError}>{contextError}</div>
       )}
 
-      {/* View Details / Collapse Button */}
+      {/* Connect / Disconnect Button */}
       <div className={styles.cardFooter}>
         <button
           className={expanded ? styles.disconnectBtn : styles.connectBtn}
           onClick={handleToggle}
           disabled={loadingContext}
         >
-          {loadingContext
-            ? "Loading..."
-            : expanded
-              ? "Collapse"
-              : "View Details"}
+          {loadingContext ? (
+            <>
+              <span className={styles.btnSpinner} />
+              Connecting...
+            </>
+          ) : expanded ? (
+            "Disconnect"
+          ) : (
+            "Connect"
+          )}
         </button>
+        {expanded && (
+          <span className={styles.connectedLabel}>
+            <span className={styles.connectedDot} />
+            Connected to Cortex
+          </span>
+        )}
       </div>
     </div>
   );
