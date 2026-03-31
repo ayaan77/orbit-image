@@ -255,6 +255,37 @@ export default function BrandsPage() {
   );
 }
 
+/* ─── Brand Context Types ─── */
+
+interface BrandColour {
+  readonly hex: string;
+  readonly name: string;
+  readonly usage: string;
+}
+
+interface BrandContextData {
+  readonly colours: {
+    readonly primary: BrandColour;
+    readonly secondary: BrandColour;
+    readonly accent: BrandColour;
+    readonly dark: BrandColour;
+    readonly highlight: BrandColour;
+    readonly [key: string]: BrandColour;
+  } | null;
+  readonly voice: {
+    readonly brand_voice_rules?: {
+      readonly tone_spectrum?: string;
+      readonly jargon_level?: string;
+      readonly style_notes?: readonly string[];
+    };
+  } | null;
+  readonly company: {
+    readonly brand_config?: { readonly name?: string; readonly domain?: string };
+    readonly company?: { readonly name?: string; readonly domain?: string };
+  } | null;
+  readonly personas: readonly { readonly id: string; readonly name: string; readonly role?: string }[] | null;
+}
+
 /* ─── Brand Card ─── */
 
 interface BrandCardProps {
@@ -270,6 +301,33 @@ function BrandCard({
   onCopySuccess,
   onCopyError,
 }: BrandCardProps) {
+  const [connected, setConnected] = useState(false);
+  const [loadingContext, setLoadingContext] = useState(false);
+  const [context, setContext] = useState<BrandContextData | null>(null);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  const handleConnect = async () => {
+    if (connected) {
+      setConnected(false);
+      return;
+    }
+    setLoadingContext(true);
+    setContextError(null);
+    try {
+      const res = await apiFetch(`/api/admin/brands/${brand.id}`);
+      if (!res.ok) throw new Error("Failed to fetch brand context");
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message ?? "Cortex error");
+      setContext(data.context);
+      setConnected(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load context";
+      setContextError(msg);
+    } finally {
+      setLoadingContext(false);
+    }
+  };
+
   const handleCopyId = async () => {
     try {
       await navigator.clipboard.writeText(brand.id);
@@ -286,8 +344,15 @@ function BrandCard({
     { label: "Proof", icon: proofIcon },
   ];
 
+  // Extract color swatches from context
+  const colorSwatches = context?.colours
+    ? Object.entries(context.colours)
+        .filter(([, v]) => v && typeof v === "object" && "hex" in v)
+        .slice(0, 6)
+    : [];
+
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${connected ? styles.cardConnected : ""}`}>
       <div className={styles.cardGlow} />
 
       {/* Header */}
@@ -314,12 +379,14 @@ function BrandCard({
         </div>
       </div>
 
-      {/* Body */}
+      {/* Summary (always visible) */}
       <div className={styles.cardBody}>
-        <p className={styles.contextNote}>
-          Brand context (colors, voice, personas, proof) is pulled from Cortex
-          at generation time.
-        </p>
+        {!connected && (
+          <p className={styles.contextNote}>
+            Brand context (colors, voice, personas, proof) is pulled from Cortex
+            at generation time.
+          </p>
+        )}
         <div className={styles.contextItems}>
           {contextItems.map((item) => (
             <span key={item.label} className={styles.contextTag}>
@@ -338,6 +405,102 @@ function BrandCard({
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Expanded Context (when connected) */}
+      {connected && context && (
+        <div className={styles.contextExpanded}>
+          {/* Colors */}
+          {colorSwatches.length > 0 && (
+            <div className={styles.contextSection}>
+              <span className={styles.contextSectionTitle}>Brand Colors</span>
+              <div className={styles.colorSwatches}>
+                {colorSwatches.map(([key, color]) => (
+                  <div key={key} className={styles.colorSwatch}>
+                    <div
+                      className={styles.colorDot}
+                      style={{ background: color.hex }}
+                    />
+                    <div className={styles.colorInfo}>
+                      <span className={styles.colorName}>{color.name || key}</span>
+                      <span className={styles.colorHex}>{color.hex}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Voice */}
+          {context.voice?.brand_voice_rules && (
+            <div className={styles.contextSection}>
+              <span className={styles.contextSectionTitle}>Voice</span>
+              <div className={styles.voiceDetails}>
+                {context.voice.brand_voice_rules.tone_spectrum && (
+                  <span className={styles.voiceTag}>Tone: {context.voice.brand_voice_rules.tone_spectrum}</span>
+                )}
+                {context.voice.brand_voice_rules.jargon_level && (
+                  <span className={styles.voiceTag}>Jargon: {context.voice.brand_voice_rules.jargon_level}</span>
+                )}
+                {context.voice.brand_voice_rules.style_notes?.slice(0, 3).map((note, i) => (
+                  <span key={i} className={styles.voiceTag}>{note}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Personas */}
+          {context.personas && context.personas.length > 0 && (
+            <div className={styles.contextSection}>
+              <span className={styles.contextSectionTitle}>Personas ({context.personas.length})</span>
+              <div className={styles.personaList}>
+                {context.personas.slice(0, 4).map((p) => (
+                  <span key={p.id} className={styles.personaTag}>
+                    {p.name}{p.role ? ` — ${p.role}` : ""}
+                  </span>
+                ))}
+                {context.personas.length > 4 && (
+                  <span className={styles.personaTag}>+{context.personas.length - 4} more</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Company */}
+          {context.company && (
+            <div className={styles.contextSection}>
+              <span className={styles.contextSectionTitle}>Company</span>
+              <span className={styles.companyName}>
+                {context.company.brand_config?.name ?? context.company.company?.name ?? brand.id}
+              </span>
+              {(context.company.brand_config?.domain ?? context.company.company?.domain) && (
+                <span className={styles.companyDomain}>
+                  {context.company.brand_config?.domain ?? context.company.company?.domain}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error */}
+      {contextError && (
+        <div className={styles.testError}>{contextError}</div>
+      )}
+
+      {/* Connect/Disconnect Button */}
+      <div className={styles.cardFooter}>
+        <button
+          className={connected ? styles.disconnectBtn : styles.connectBtn}
+          onClick={handleConnect}
+          disabled={loadingContext}
+        >
+          {loadingContext
+            ? "Loading..."
+            : connected
+              ? "Disconnect"
+              : "Connect"}
+        </button>
       </div>
     </div>
   );

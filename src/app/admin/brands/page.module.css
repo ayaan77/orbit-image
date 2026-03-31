@@ -447,3 +447,167 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ─── Card Connected State ─── */
+.cardConnected {
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+
+/* ─── Card Footer ─── */
+.cardFooter {
+  margin-top: var(--space-3, 12px);
+  padding-top: var(--space-3, 12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.connectBtn {
+  padding: var(--space-1, 4px) var(--space-3, 12px);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-sm, 6px);
+  color: #93c5fd;
+  font-size: var(--text-xs, 12px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.connectBtn:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.connectBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disconnectBtn {
+  padding: var(--space-1, 4px) var(--space-3, 12px);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted);
+  font-size: var(--text-xs, 12px);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.disconnectBtn:hover {
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #fca5a5;
+}
+
+/* ─── Expanded Context ─── */
+.contextExpanded {
+  margin-top: var(--space-3, 12px);
+  padding-top: var(--space-3, 12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.contextSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.contextSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Color Swatches ─── */
+.colorSwatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.colorSwatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.colorDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.colorInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.colorName {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.colorHex {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* ─── Voice ─── */
+.voiceDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+}
+
+.voiceTag {
+  padding: 2px 8px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 12px;
+  font-size: 11px;
+  color: #c4b5fd;
+}
+
+/* ─── Personas ─── */
+.personaList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+}
+
+.personaTag {
+  padding: 2px 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 12px;
+  font-size: 11px;
+  color: #93c5fd;
+}
+
+/* ─── Company ─── */
+.companyName {
+  font-size: var(--text-sm, 13px);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.companyDomain {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
