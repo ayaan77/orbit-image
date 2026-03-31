@@ -455,9 +455,13 @@ function BrandCard({
         </button>
         <div className={styles.badges}>
           {isDefault && <span className={styles.badgeDefault}>Default</span>}
-          <span className={brand.active ? styles.badgeActive : styles.badgeInactive}>
-            {brand.active ? "Active" : "Inactive"}
-          </span>
+          {isConnected ? (
+            <span className={styles.badgeConnected}>Connected</span>
+          ) : (
+            <span className={brand.active ? styles.badgeActive : styles.badgeInactive}>
+              {brand.active ? "Active" : "Inactive"}
+            </span>
+          )}
         </div>
       </div>
 
@@ -593,34 +597,47 @@ function BrandCard({
         <div className={styles.testError}>{contextError}</div>
       )}
 
-      {/* Connect / Disconnect Button */}
+      {/* Actions */}
       <div className={styles.cardFooter}>
-        {isConnected ? (
-          <button
-            className={styles.disconnectBtn}
-            onClick={handleDisconnect}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Disconnect"}
-          </button>
-        ) : (
-          <button
-            className={styles.connectBtn}
-            onClick={handleConnect}
-            disabled={loadingContext || saving}
-          >
-            {loadingContext ? (
-              <>
-                <span className={styles.btnSpinner} />
-                Connecting...
-              </>
-            ) : saving ? (
-              "Saving..."
-            ) : (
-              "Connect"
-            )}
-          </button>
-        )}
+        <div className={styles.cardActions}>
+          {isConnected ? (
+            <>
+              <button
+                className={styles.collapseBtn}
+                onClick={() => {
+                  if (!expanded && !context) fetchContext();
+                  setExpanded((v) => !v);
+                }}
+              >
+                {expanded ? "Collapse" : "Expand"}
+              </button>
+              <button
+                className={styles.disconnectBtn}
+                onClick={handleDisconnect}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Disconnect"}
+              </button>
+            </>
+          ) : (
+            <button
+              className={styles.connectBtn}
+              onClick={handleConnect}
+              disabled={loadingContext || saving}
+            >
+              {loadingContext ? (
+                <>
+                  <span className={styles.btnSpinner} />
+                  Connecting...
+                </>
+              ) : saving ? (
+                "Saving..."
+              ) : (
+                "Connect"
+              )}
+            </button>
+          )}
+        </div>
         {isConnected && (
           <span className={styles.connectedLabel}>
             <span className={styles.connectedDot} />

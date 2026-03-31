@@ -20,18 +20,37 @@ export function BrandPicker({ value, onChange }: BrandPickerProps) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    apiFetch("/api/brands")
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed");
-        return r.json();
-      })
-      .then((data) => {
+    async function load() {
+      try {
+        // Try connected brands first (admin-only, returns Postgres state)
+        const connRes = await apiFetch("/api/admin/brands");
+        if (connRes.ok) {
+          const connData = await connRes.json();
+          if (connData.success && Array.isArray(connData.connections) && connData.connections.length > 0) {
+            const connected = connData.connections
+              .filter((c: { connected: boolean }) => c.connected)
+              .map((c: { brandId: string }) => ({ id: c.brandId, active: true }));
+            if (connected.length > 0) {
+              setBrands(connected);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+        // Fallback to all Cortex brands
+        const res = await apiFetch("/api/brands");
+        if (!res.ok) throw new Error("Failed");
+        const data = await res.json();
         if (Array.isArray(data.brands)) {
           setBrands(data.brands);
         }
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   if (loading) {

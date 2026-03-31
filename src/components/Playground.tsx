@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { MODEL_CATALOG, MODEL_IDS, DEFAULT_MODEL, type ModelId } from "@/lib/providers/models";
 import { addHistoryEntry } from "@/lib/client/storage";
 import { ImageGallery } from "./ImageGallery";
+import { BrandPicker } from "./BrandPicker";
 import styles from "./Playground.module.css";
 
 const PURPOSES = [
@@ -366,11 +367,9 @@ export function Playground() {
             </div>
             <div className={styles.fieldGroup}>
               <label className={styles.label}>Brand</label>
-              <input
-                className={styles.input}
-                placeholder="apexure"
+              <BrandPicker
                 value={form.brand}
-                onChange={(e) => updateField("brand", e.target.value)}
+                onChange={(id) => updateField("brand", id)}
               />
             </div>
           </div>
