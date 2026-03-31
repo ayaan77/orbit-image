@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/client/api";
+import { MODEL_CATALOG, MODEL_IDS } from "@/lib/providers/models";
+import type { ModelId } from "@/lib/providers/models";
 import styles from "./page.module.css";
 
 type Purpose = "blog-hero" | "social-og" | "ad-creative" | "case-study" | "icon" | "infographic";
@@ -38,6 +40,37 @@ const PURPOSES: readonly { readonly id: Purpose; readonly label: string; readonl
   { id: "infographic", label: "Infographic", primary: false },
 ];
 
+interface HistoryItem {
+  readonly topic: string;
+  readonly purpose: string;
+  readonly brand: string;
+  readonly imageUrl: string;
+  readonly timestamp: number;
+}
+
+const HISTORY_KEY = "orbit-studio-history";
+
+function loadHistory(): readonly HistoryItem[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(item: HistoryItem): readonly HistoryItem[] {
+  const history = [...loadHistory()];
+  history.unshift(item);
+  const trimmed = history.slice(0, 3);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+  return trimmed;
+}
+
+const STUDIO_MODELS: readonly ModelId[] = MODEL_IDS.filter(
+  (id) => id !== "grok-aurora"
+);
+
 export default function StudioPage() {
   const [topic, setTopic] = useState("");
   const [brand, setBrand] = useState("");
@@ -49,6 +82,21 @@ export default function StudioPage() {
   const [generated, setGenerated] = useState<GenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Feature 1: Brand color preview
+  const [brandColors, setBrandColors] = useState<Record<string, string[]>>({});
+  const [hoveredBrand, setHoveredBrand] = useState<string | null>(null);
+  const brandFetchingRef = useRef<Set<string>>(new Set());
+
+  // Feature 2: Generation history
+  const [history, setHistory] = useState<readonly HistoryItem[]>([]);
+
+  // Feature 3: Share button
+  const [shareLabel, setShareLabel] = useState("Share");
+
+  // Feature 4: Advanced model selector
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [model, setModel] = useState<string>("");
 
   const canSubmit = topic.trim().length >= 3;
 
@@ -88,6 +136,34 @@ export default function StudioPage() {
     load();
   }, []);
 
+  // Load history from localStorage
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  // Feature 1: Lazy fetch brand colors on hover
+  const handleBrandHover = useCallback(async (brandId: string) => {
+    setHoveredBrand(brandId);
+    if (brandColors[brandId] || brandFetchingRef.current.has(brandId)) return;
+    brandFetchingRef.current.add(brandId);
+    try {
+      const res = await apiFetch(`/api/admin/brands/${brandId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const colors: string[] = Array.isArray(data.colors)
+          ? data.colors.slice(0, 4)
+          : Array.isArray(data.brand?.colors)
+            ? data.brand.colors.slice(0, 4)
+            : [];
+        if (colors.length > 0) {
+          setBrandColors((prev) => ({ ...prev, [brandId]: colors }));
+        }
+      }
+    } catch {
+      // Colors are optional — fail silently
+    }
+  }, [brandColors]);
+
   const handleGenerate = useCallback(async () => {
     if (!canSubmit) return;
     setLoading(true);
@@ -96,6 +172,7 @@ export default function StudioPage() {
     try {
       const body: Record<string, string> = { topic: topic.trim(), purpose };
       if (brand) body.brand = brand;
+      if (model) body.model = model;
       const res = await fetch("/api/studio/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,12 +184,26 @@ export default function StudioPage() {
         return;
       }
       setGenerated(json);
+
+      // Save to history
+      const img = json.images?.[0];
+      const imgUrl = img?.url ?? (img?.base64 ? `data:${img.mimeType};base64,${img.base64}` : "");
+      if (imgUrl) {
+        const updated = saveHistory({
+          topic: topic.trim(),
+          purpose,
+          brand: brand || json.brand || "",
+          imageUrl: imgUrl,
+          timestamp: Date.now(),
+        });
+        setHistory(updated);
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [topic, purpose, brand, canSubmit]);
+  }, [topic, purpose, brand, model, canSubmit]);
 
   const handleDownload = useCallback(() => {
     const img = generated?.images[0];
@@ -122,6 +213,55 @@ export default function StudioPage() {
     a.download = "orbit-image.png";
     a.click();
   }, [generated]);
+
+  // Feature 3: Share handler
+  const handleShare = useCallback(async () => {
+    const img = generated?.images[0];
+    if (!img) return;
+    const url = img.url ?? (img.base64 ? `data:${img.mimeType};base64,${img.base64}` : null);
+    if (!url) return;
+
+    if (typeof navigator.share === "function" && img.url) {
+      try {
+        await navigator.share({ title: "Orbit Image", url: img.url });
+      } catch {
+        // User cancelled or share failed — ignore
+      }
+      return;
+    }
+
+    if (img.url) {
+      try {
+        await navigator.clipboard.writeText(img.url);
+        setShareLabel("Copied!");
+        setTimeout(() => setShareLabel("Share"), 2000);
+      } catch {
+        setShareLabel("Share not available");
+        setTimeout(() => setShareLabel("Share"), 2000);
+      }
+      return;
+    }
+
+    setShareLabel("Share not available");
+    setTimeout(() => setShareLabel("Share"), 2000);
+  }, [generated]);
+
+  // Feature 2: Click history item to show in result view
+  const handleHistoryClick = useCallback((item: HistoryItem) => {
+    setGenerated({
+      images: [{
+        url: item.imageUrl,
+        mimeType: "image/png",
+        dimensions: { width: 1024, height: 1024 },
+      }],
+      brand: item.brand,
+      metadata: {
+        processingTimeMs: 0,
+        brandContextUsed: !!item.brand,
+        demo: false,
+      },
+    });
+  }, []);
 
   const imageUrl = generated?.images[0]?.url
     ?? (generated?.images[0]?.base64
@@ -177,15 +317,32 @@ export default function StudioPage() {
                     Auto
                   </button>
                   {brands.map((b) => (
-                    <button
+                    <div
                       key={b.id}
-                      className={`${styles.brandChip} ${brand === b.id ? styles.brandChipActive : ""}`}
-                      onClick={() => setBrand(brand === b.id ? "" : b.id)}
-                      type="button"
+                      className={styles.brandChipWrapper}
+                      onMouseEnter={() => handleBrandHover(b.id)}
+                      onMouseLeave={() => setHoveredBrand(null)}
                     >
-                      <span className={styles.brandDot} />
-                      {b.id}
-                    </button>
+                      <button
+                        className={`${styles.brandChip} ${brand === b.id ? styles.brandChipActive : ""}`}
+                        onClick={() => setBrand(brand === b.id ? "" : b.id)}
+                        type="button"
+                      >
+                        <span className={styles.brandDot} />
+                        {b.id}
+                      </button>
+                      {hoveredBrand === b.id && brandColors[b.id] && brandColors[b.id].length > 0 && (
+                        <div className={styles.brandTooltip}>
+                          {brandColors[b.id].map((color, i) => (
+                            <span
+                              key={i}
+                              className={styles.brandColorDot}
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
                 <p className={styles.brandHint}>
@@ -232,6 +389,37 @@ export default function StudioPage() {
               </div>
             )}
 
+            {/* Advanced / Model Selector */}
+            <button
+              className={styles.advancedToggle}
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              type="button"
+            >
+              {showAdvanced ? "Hide advanced" : "Advanced"}
+            </button>
+
+            {showAdvanced && (
+              <div className={styles.modelRow}>
+                <button
+                  className={`${styles.purposeChip} ${model === "" ? styles.purposeChipActive : ""}`}
+                  onClick={() => setModel("")}
+                  type="button"
+                >
+                  Auto
+                </button>
+                {STUDIO_MODELS.map((id) => (
+                  <button
+                    key={id}
+                    className={`${styles.purposeChip} ${model === id ? styles.purposeChipActive : ""}`}
+                    onClick={() => setModel(model === id ? "" : id)}
+                    type="button"
+                  >
+                    {MODEL_CATALOG[id].displayName}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Generate */}
             <button
               className={styles.generateBtn}
@@ -254,6 +442,34 @@ export default function StudioPage() {
             <p className={styles.hint}>
               3 free per day · ⌘Enter to generate
             </p>
+
+            {/* History */}
+            {history.length > 0 && (
+              <div className={styles.historySection}>
+                <p className={styles.historyLabel}>Recent</p>
+                <div className={styles.historyRow}>
+                  {history.map((item, i) => (
+                    <button
+                      key={item.timestamp}
+                      className={styles.historyCard}
+                      onClick={() => handleHistoryClick(item)}
+                      type="button"
+                      aria-label={`View previous generation: ${item.topic}`}
+                    >
+                      <img
+                        className={styles.historyThumb}
+                        src={item.imageUrl}
+                        alt={`Generation ${i + 1}`}
+                      />
+                      <div className={styles.historyInfo}>
+                        <span className={styles.historyTopic}>{item.topic}</span>
+                        {item.brand && <span className={styles.historyBrand}>{item.brand}</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ─── Result View ─── */
@@ -289,9 +505,12 @@ export default function StudioPage() {
               <button className={styles.actionBtn} onClick={handleDownload} type="button">
                 Download
               </button>
+              <button className={styles.actionBtn} onClick={handleShare} type="button">
+                {shareLabel}
+              </button>
               <button
                 className={styles.actionBtnPrimary}
-                onClick={() => { setGenerated(null); setError(null); }}
+                onClick={() => { setGenerated(null); setError(null); setShareLabel("Share"); }}
                 type="button"
               >
                 Generate Another

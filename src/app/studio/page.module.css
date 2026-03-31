@@ -453,6 +453,136 @@
   }
 }
 
+/* ─── Brand Tooltip ─── */
+
+.brandChipWrapper {
+  position: relative;
+}
+
+.brandTooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  z-index: 10;
+  animation: fadeIn 0.15s ease-out;
+  white-space: nowrap;
+}
+
+.brandColorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ─── History Section ─── */
+
+.historySection {
+  width: 100%;
+  margin-top: var(--space-4);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.historyLabel {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+  text-align: center;
+}
+
+.historyRow {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  justify-content: center;
+  padding-bottom: var(--space-1);
+}
+
+.historyCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  max-width: 180px;
+  font-family: inherit;
+  color: inherit;
+}
+
+.historyCard:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.historyThumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.historyInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.historyTopic {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyBrand {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* ─── Advanced / Model Selector ─── */
+
+.advancedToggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 0;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.advancedToggle:hover {
+  color: var(--text-secondary);
+}
+
+.modelRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+  animation: fadeIn 0.2s ease-out;
+}
+
 /* ─── Animations ─── */
 
 @keyframes spin {
