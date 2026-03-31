@@ -31,6 +31,7 @@ export default function BrandsPage() {
   const { showToast } = useToast();
   const [brands, setBrands] = useState<readonly BrandItem[]>([]);
   const [defaultBrand, setDefaultBrand] = useState<string>("");
+  const [connectedIds, setConnectedIds] = useState<ReadonlySet<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -43,9 +44,10 @@ export default function BrandsPage() {
     setError(null);
 
     try {
-      const [brandsRes, configRes] = await Promise.all([
+      const [brandsRes, configRes, connectionsRes] = await Promise.all([
         apiFetch("/api/brands"),
         apiFetch("/api/admin/config"),
+        apiFetch("/api/admin/brands"),
       ]);
 
       if (!brandsRes.ok) {
@@ -66,6 +68,19 @@ export default function BrandsPage() {
         const configData: ConfigResponse = await configRes.json();
         if (configData.success && configData.config?.defaultBrand) {
           setDefaultBrand(configData.config.defaultBrand);
+        }
+      }
+
+      // Load connected brands from Postgres
+      if (connectionsRes.ok) {
+        const connData = await connectionsRes.json();
+        if (connData.success && Array.isArray(connData.connections)) {
+          const ids = new Set<string>(
+            connData.connections
+              .filter((c: { connected: boolean }) => c.connected)
+              .map((c: { brandId: string }) => c.brandId)
+          );
+          setConnectedIds(ids);
         }
       }
     } catch (err: unknown) {
@@ -240,6 +255,15 @@ export default function BrandsPage() {
                 key={brand.id}
                 brand={brand}
                 isDefault={brand.id === defaultBrand}
+                isConnected={connectedIds.has(brand.id)}
+                onConnectionChange={(connected) => {
+                  setConnectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (connected) next.add(brand.id);
+                    else next.delete(brand.id);
+                    return next;
+                  });
+                }}
                 onCopySuccess={() =>
                   showToast("Brand ID copied to clipboard", "success")
                 }
@@ -291,6 +315,8 @@ interface BrandContextData {
 interface BrandCardProps {
   readonly brand: BrandItem;
   readonly isDefault: boolean;
+  readonly isConnected: boolean;
+  readonly onConnectionChange: (connected: boolean) => void;
   readonly onCopySuccess: () => void;
   readonly onCopyError: () => void;
 }
@@ -298,37 +324,88 @@ interface BrandCardProps {
 function BrandCard({
   brand,
   isDefault,
+  isConnected,
+  onConnectionChange,
   onCopySuccess,
   onCopyError,
 }: BrandCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const { showToast } = useToast();
+  const [expanded, setExpanded] = useState(isConnected);
   const [loadingContext, setLoadingContext] = useState(false);
   const [context, setContext] = useState<BrandContextData | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleToggle = async () => {
-    if (expanded) {
-      setExpanded(false);
-      return;
+  // Auto-expand connected brands and fetch context on mount
+  useEffect(() => {
+    if (isConnected && !context) {
+      setExpanded(true);
+      fetchContext();
     }
-    // Fetch context if not already loaded
-    if (!context) {
-      setLoadingContext(true);
-      setContextError(null);
-      try {
-        const res = await apiFetch(`/api/admin/brands/${brand.id}`);
-        if (!res.ok) throw new Error("Failed to fetch brand context");
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error?.message ?? "Cortex error");
-        setContext(data.context);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Failed to load context";
-        setContextError(msg);
-      } finally {
-        setLoadingContext(false);
-      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
+
+  async function fetchContext() {
+    setLoadingContext(true);
+    setContextError(null);
+    try {
+      const res = await apiFetch(`/api/admin/brands/${brand.id}`);
+      if (!res.ok) throw new Error("Failed to fetch brand context");
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message ?? "Cortex error");
+      setContext(data.context);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load context";
+      setContextError(msg);
+    } finally {
+      setLoadingContext(false);
     }
+  }
+
+  const handleConnect = async () => {
+    // Fetch context first
+    if (!context) await fetchContext();
     setExpanded(true);
+
+    // Persist to DB
+    setSaving(true);
+    try {
+      const res = await apiFetch("/api/admin/brands", {
+        method: "POST",
+        body: JSON.stringify({ brandId: brand.id, connected: true }),
+      });
+      if (res.ok) {
+        onConnectionChange(true);
+        showToast(`${brand.id} connected`, "success");
+      } else {
+        showToast("Failed to save — is Postgres configured?", "error");
+      }
+    } catch {
+      showToast("Failed to save connection", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setSaving(true);
+    try {
+      const res = await apiFetch("/api/admin/brands", {
+        method: "POST",
+        body: JSON.stringify({ brandId: brand.id, connected: false }),
+      });
+      if (res.ok) {
+        setExpanded(false);
+        onConnectionChange(false);
+        showToast(`${brand.id} disconnected`, "info");
+      } else {
+        showToast("Failed to save — is Postgres configured?", "error");
+      }
+    } catch {
+      showToast("Failed to save disconnection", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCopyId = async () => {
@@ -361,7 +438,7 @@ function BrandCard({
     : [];
 
   return (
-    <div className={`${styles.card} ${expanded ? styles.cardConnected : ""}`}>
+    <div className={`${styles.card} ${isConnected ? styles.cardConnected : ""}`}>
       <div className={styles.cardGlow} />
 
       {/* Header */}
@@ -508,23 +585,33 @@ function BrandCard({
 
       {/* Connect / Disconnect Button */}
       <div className={styles.cardFooter}>
-        <button
-          className={expanded ? styles.disconnectBtn : styles.connectBtn}
-          onClick={handleToggle}
-          disabled={loadingContext}
-        >
-          {loadingContext ? (
-            <>
-              <span className={styles.btnSpinner} />
-              Connecting...
-            </>
-          ) : expanded ? (
-            "Disconnect"
-          ) : (
-            "Connect"
-          )}
-        </button>
-        {expanded && (
+        {isConnected ? (
+          <button
+            className={styles.disconnectBtn}
+            onClick={handleDisconnect}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Disconnect"}
+          </button>
+        ) : (
+          <button
+            className={styles.connectBtn}
+            onClick={handleConnect}
+            disabled={loadingContext || saving}
+          >
+            {loadingContext ? (
+              <>
+                <span className={styles.btnSpinner} />
+                Connecting...
+              </>
+            ) : saving ? (
+              "Saving..."
+            ) : (
+              "Connect"
+            )}
+          </button>
+        )}
+        {isConnected && (
           <span className={styles.connectedLabel}>
             <span className={styles.connectedDot} />
             Connected to Cortex
