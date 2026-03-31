@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/client/api";
 import styles from "./page.module.css";
 
 type Purpose = "blog-hero" | "social-og" | "ad-creative" | "case-study" | "icon" | "infographic";
@@ -23,23 +24,69 @@ interface GenerateResult {
   };
 }
 
-const PURPOSES: readonly { readonly id: Purpose; readonly label: string }[] = [
-  { id: "blog-hero", label: "Blog Hero" },
-  { id: "social-og", label: "Social" },
-  { id: "ad-creative", label: "Ad" },
-  { id: "case-study", label: "Case Study" },
-  { id: "icon", label: "Icon" },
-  { id: "infographic", label: "Infographic" },
+interface BrandOption {
+  readonly id: string;
+  readonly connected: boolean;
+}
+
+const PURPOSES: readonly { readonly id: Purpose; readonly label: string; readonly primary: boolean }[] = [
+  { id: "blog-hero", label: "Blog Hero", primary: true },
+  { id: "social-og", label: "Social", primary: true },
+  { id: "ad-creative", label: "Ad", primary: true },
+  { id: "case-study", label: "Case Study", primary: false },
+  { id: "icon", label: "Icon", primary: false },
+  { id: "infographic", label: "Infographic", primary: false },
 ];
 
 export default function StudioPage() {
   const [topic, setTopic] = useState("");
+  const [brand, setBrand] = useState("");
   const [purpose, setPurpose] = useState<Purpose>("blog-hero");
+  const [showMore, setShowMore] = useState(false);
+  const [brands, setBrands] = useState<readonly BrandOption[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+
   const [generated, setGenerated] = useState<GenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = topic.trim().length >= 3;
+
+  // Load brands
+  useEffect(() => {
+    async function load() {
+      try {
+        // Try connected brands first
+        const connRes = await apiFetch("/api/admin/brands");
+        if (connRes.ok) {
+          const data = await connRes.json();
+          if (data.success && Array.isArray(data.connections) && data.connections.length > 0) {
+            const connected = data.connections
+              .filter((c: { connected: boolean }) => c.connected)
+              .map((c: { brandId: string }) => ({ id: c.brandId, connected: true }));
+            if (connected.length > 0) {
+              setBrands(connected);
+              setBrandsLoading(false);
+              return;
+            }
+          }
+        }
+        // Fallback to Cortex brands
+        const res = await apiFetch("/api/brands");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.brands)) {
+            setBrands(data.brands.filter((b: { active: boolean }) => b.active).map((b: { id: string }) => ({ id: b.id, connected: false })));
+          }
+        }
+      } catch {
+        // Brands optional
+      } finally {
+        setBrandsLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   const handleGenerate = useCallback(async () => {
     if (!canSubmit) return;
@@ -47,10 +94,12 @@ export default function StudioPage() {
     setError(null);
     setGenerated(null);
     try {
+      const body: Record<string, string> = { topic: topic.trim(), purpose };
+      if (brand) body.brand = brand;
       const res = await fetch("/api/studio/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topic.trim(), purpose }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -63,7 +112,7 @@ export default function StudioPage() {
     } finally {
       setLoading(false);
     }
-  }, [topic, purpose, canSubmit]);
+  }, [topic, purpose, brand, canSubmit]);
 
   const handleDownload = useCallback(() => {
     const img = generated?.images[0];
@@ -74,22 +123,15 @@ export default function StudioPage() {
     a.click();
   }, [generated]);
 
-  const handleCopyUrl = useCallback(async () => {
-    const url = generated?.images[0]?.url;
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      // clipboard blocked
-    }
-  }, [generated]);
-
   const imageUrl = generated?.images[0]?.url
     ?? (generated?.images[0]?.base64
       ? `data:${generated.images[0].mimeType};base64,${generated.images[0].base64}`
       : null);
 
   const hasResult = generated && imageUrl && !loading;
+  const primaryPurposes = PURPOSES.filter((p) => p.primary);
+  const morePurposes = PURPOSES.filter((p) => !p.primary);
+  const isMoreSelected = morePurposes.some((p) => p.id === purpose);
 
   return (
     <div className={styles.page}>
@@ -102,7 +144,6 @@ export default function StudioPage() {
         <Link href="/" className={styles.backLink}>← Dashboard</Link>
       </header>
 
-      {/* Main Content */}
       <div className={styles.main}>
         {!hasResult ? (
           /* ─── Input View ─── */
@@ -118,9 +159,33 @@ export default function StudioPage() {
               rows={3}
             />
 
-            {/* Purpose row */}
+            {/* Brand Selector */}
+            {!brandsLoading && brands.length > 0 && (
+              <div className={styles.brandRow}>
+                <button
+                  className={`${styles.brandChip} ${!brand ? styles.brandChipActive : ""}`}
+                  onClick={() => setBrand("")}
+                  type="button"
+                >
+                  Auto
+                </button>
+                {brands.map((b) => (
+                  <button
+                    key={b.id}
+                    className={`${styles.brandChip} ${brand === b.id ? styles.brandChipActive : ""}`}
+                    onClick={() => setBrand(brand === b.id ? "" : b.id)}
+                    type="button"
+                  >
+                    <span className={styles.brandDot} />
+                    {b.id}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Purpose */}
             <div className={styles.purposeRow}>
-              {PURPOSES.map((p) => (
+              {primaryPurposes.map((p) => (
                 <button
                   key={p.id}
                   className={`${styles.purposeChip} ${purpose === p.id ? styles.purposeChipActive : ""}`}
@@ -130,7 +195,29 @@ export default function StudioPage() {
                   {p.label}
                 </button>
               ))}
+              <button
+                className={`${styles.purposeChip} ${isMoreSelected ? styles.purposeChipActive : ""} ${showMore ? styles.purposeChipActive : ""}`}
+                onClick={() => setShowMore(!showMore)}
+                type="button"
+              >
+                {isMoreSelected ? morePurposes.find((p) => p.id === purpose)?.label : "More ▾"}
+              </button>
             </div>
+
+            {showMore && (
+              <div className={styles.moreRow}>
+                {morePurposes.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`${styles.purposeChip} ${purpose === p.id ? styles.purposeChipActive : ""}`}
+                    onClick={() => { setPurpose(p.id); setShowMore(false); }}
+                    type="button"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Generate */}
             <button
@@ -149,12 +236,11 @@ export default function StudioPage() {
               )}
             </button>
 
-            {/* Error */}
-            {error && (
-              <div className={styles.error}>{error}</div>
-            )}
+            {error && <div className={styles.error}>{error}</div>}
 
-            <p className={styles.hint}>3 free generations per day · Brand context applied automatically</p>
+            <p className={styles.hint}>
+              3 free generations per day{brand ? ` · Using ${brand} brand` : " · Brand context applied automatically"}
+            </p>
           </div>
         ) : (
           /* ─── Result View ─── */
@@ -169,28 +255,21 @@ export default function StudioPage() {
               />
             </div>
 
-            {/* Meta bar */}
             <div className={styles.metaBar}>
               <span className={styles.metaBrand}>
                 {generated.metadata.brandContextUsed
-                  ? <><span className={styles.metaDot} />{generated.brand} brand</>
-                  : "Generic (no brand)"}
+                  ? <><span className={styles.metaDot} />{generated.brand}</>
+                  : "No brand context"}
               </span>
               <span className={styles.metaTime}>
                 {(generated.metadata.processingTimeMs / 1000).toFixed(1)}s
               </span>
             </div>
 
-            {/* Actions */}
             <div className={styles.actions}>
               <button className={styles.actionBtn} onClick={handleDownload} type="button">
                 Download
               </button>
-              {generated.images[0]?.url && (
-                <button className={styles.actionBtn} onClick={handleCopyUrl} type="button">
-                  Copy URL
-                </button>
-              )}
               <button
                 className={styles.actionBtnPrimary}
                 onClick={() => { setGenerated(null); setError(null); }}
@@ -200,7 +279,6 @@ export default function StudioPage() {
               </button>
             </div>
 
-            {/* CTA */}
             <div className={styles.cta}>
               <p className={styles.ctaText}>Want unlimited access? Connect via MCP or API.</p>
               <Link href="/" className={styles.ctaLink}>Open Dashboard →</Link>

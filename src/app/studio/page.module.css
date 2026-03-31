@@ -107,6 +107,52 @@
   color: var(--text-muted);
 }
 
+/* ─── Brand Selector ─── */
+
+.brandRow {
+  display: flex;
+  gap: 6px;
+  margin: var(--space-3) 0 var(--space-1);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.brandChip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  text-transform: capitalize;
+}
+
+.brandChip:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+}
+
+.brandChipActive {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+}
+
+.brandDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
 /* ─── Purpose Row ─── */
 
 .purposeRow {
@@ -139,6 +185,14 @@
   background: rgba(139, 92, 246, 0.1);
   border-color: rgba(139, 92, 246, 0.3);
   color: #c4b5fd;
+}
+
+.moreRow {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: calc(-1 * var(--space-2));
+  animation: fadeIn 0.2s ease-out;
 }
 
 /* ─── Generate Button ─── */
