@@ -330,7 +330,7 @@ function BrandCard({
   onCopyError,
 }: BrandCardProps) {
   const { showToast } = useToast();
-  const [expanded, setExpanded] = useState(isConnected);
+  const [expanded, setExpanded] = useState(false);
   const [loadingContext, setLoadingContext] = useState(false);
   const [context, setContext] = useState<BrandContextData | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
@@ -463,11 +463,17 @@ function BrandCard({
 
       {/* Summary */}
       <div className={styles.cardBody}>
-        {!expanded && (
+        {!expanded && !isConnected && (
           <p className={styles.contextNote}>
             Brand context (colors, voice, personas, proof) is pulled from Cortex
             at generation time.
           </p>
+        )}
+        {!expanded && isConnected && (
+          <div className={styles.connectedBadge}>
+            <span className={styles.connectedDot} />
+            Connected to Cortex
+          </div>
         )}
         <div className={styles.contextItems}>
           {contextItems.map((item) => (
@@ -501,15 +507,19 @@ function BrandCard({
             <span className={styles.contextSectionTitle}>Brand Colors</span>
             {colorSwatches.length > 0 ? (
               <div className={styles.colorSwatches}>
-                {colorSwatches.map(([key, color]) => (
-                  <div key={key} className={styles.colorSwatch}>
-                    <div className={styles.colorDot} style={{ background: color.hex }} />
-                    <div className={styles.colorInfo}>
-                      <span className={styles.colorName}>{color.name || key}</span>
-                      <span className={styles.colorHex}>{color.hex}</span>
+                {colorSwatches.map(([key, color]) => {
+                  // Use key as label if name looks like a usage description (>20 chars)
+                  const label = color.name && color.name.length < 20 ? color.name : key.replace(/-/g, " ");
+                  return (
+                    <div key={key} className={styles.colorSwatch}>
+                      <div className={styles.colorDot} style={{ background: color.hex }} />
+                      <div className={styles.colorInfo}>
+                        <span className={styles.colorName}>{label}</span>
+                        <span className={styles.colorHex}>{color.hex}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <span className={styles.contextMissing}>Not configured in Cortex</span>
