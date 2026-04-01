@@ -466,3 +466,101 @@ export async function markMentionsRead(
       )
   `;
 }
+
+// ─── Channel Creation ───
+
+export async function createChannel(data: {
+  readonly workspaceId: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly createdBy: string;
+}): Promise<Channel> {
+  const db = getDb();
+  if (!db) throw new ChatError('Database not configured', 503);
+
+  const id = newChannelId();
+
+  const rows = await db`
+    INSERT INTO channels (id, workspace_id, name, description, is_dm, created_by)
+    VALUES (${id}, ${data.workspaceId}, ${data.name}, ${data.description ?? null}, FALSE, ${data.createdBy})
+    RETURNING *
+  `;
+
+  return rowToChannel(rows[0]);
+}
+
+// ─── Member Search ───
+
+export async function searchWorkspaceMembers(
+  workspaceId: string,
+  query: string,
+  limit = 10
+): Promise<{ readonly id: string; readonly username: string }[]> {
+  const db = getDb();
+  if (!db) return [];
+
+  const safeLimit = Math.min(limit, 50);
+  const pattern = `%${query}%`;
+
+  const rows = await db`
+    SELECT u.id, u.username
+    FROM users u
+    JOIN workspace_members wm ON wm.user_id = u.id
+    WHERE wm.workspace_id = ${workspaceId}
+      AND u.username ILIKE ${pattern}
+    ORDER BY u.username ASC
+    LIMIT ${safeLimit}
+  `;
+
+  return rows.map((r) => ({
+    id: r.id as string,
+    username: r.username as string,
+  }));
+}
+
+// ─── Image Data ───
+
+export async function insertImageData(data: {
+  readonly messageId: string;
+  readonly brand: string;
+  readonly prompt: string;
+  readonly model: string;
+  readonly imageUrl: string;
+  readonly mimeType: string;
+  readonly dimensions: { readonly width: number; readonly height: number };
+  readonly generationRef?: string;
+}): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+
+  await db`
+    INSERT INTO message_images (message_id, brand, prompt, model, image_url, mime_type, dimensions, generation_ref)
+    VALUES (
+      ${data.messageId},
+      ${data.brand},
+      ${data.prompt},
+      ${data.model},
+      ${data.imageUrl},
+      ${data.mimeType},
+      ${JSON.stringify(data.dimensions)},
+      ${data.generationRef ?? null}
+    )
+    ON CONFLICT (message_id) DO NOTHING
+  `;
+}
+
+// ─── Channel Lookup ───
+
+export async function getChannelById(
+  channelId: string
+): Promise<Channel | null> {
+  const db = getDb();
+  if (!db) return null;
+
+  const rows = await db`
+    SELECT * FROM channels WHERE id = ${channelId} LIMIT 1
+  `;
+
+  if (rows.length === 0) return null;
+  return rowToChannel(rows[0]);
+}
