@@ -78,7 +78,7 @@ describe("Studio — URL param pre-fill (Regenerate with feedback flow)", () => 
 
     render(<StudioPage />);
 
-    const textarea = screen.getByPlaceholderText(/A modern SaaS dashboard/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(/Describe your image/i) as HTMLTextAreaElement;
     expect(textarea.value).toBe("a snowy mountain");
   });
 
@@ -92,7 +92,7 @@ describe("Studio — URL param pre-fill (Regenerate with feedback flow)", () => 
 
     render(<StudioPage />);
 
-    const textarea = screen.getByPlaceholderText(/A modern SaaS dashboard/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(/Describe your image/i) as HTMLTextAreaElement;
     expect(textarea.value).toBe("a snowy mountain\n\nFeedback: make it warmer");
   });
 
@@ -101,7 +101,7 @@ describe("Studio — URL param pre-fill (Regenerate with feedback flow)", () => 
 
     render(<StudioPage />);
 
-    const textarea = screen.getByPlaceholderText(/A modern SaaS dashboard/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(/Describe your image/i) as HTMLTextAreaElement;
     expect(textarea.value).toBe("");
   });
 
@@ -140,10 +140,10 @@ describe("Studio — Share to Channel button", () => {
   async function generateAndGetResult() {
     render(<StudioPage />);
 
-    const textarea = screen.getByPlaceholderText(/A modern SaaS dashboard/i);
+    const textarea = screen.getByPlaceholderText(/Describe your image/i);
     fireEvent.change(textarea, { target: { value: "test image prompt" } });
 
-    const generateBtn = screen.getByText("Generate");
+    const generateBtn = screen.getByRole("button", { name: /Generate/i });
     await act(async () => {
       fireEvent.click(generateBtn);
     });
@@ -200,11 +200,11 @@ describe("Studio — Share to Channel button", () => {
     mockChatCtx = createMockChatContext({ shareImage: shareImageMock });
 
     render(<StudioPage />);
-    const textarea = screen.getByPlaceholderText(/A modern SaaS dashboard/i);
+    const textarea = screen.getByPlaceholderText(/Describe your image/i);
     fireEvent.change(textarea, { target: { value: "base64 test prompt" } });
 
     await act(async () => {
-      fireEvent.click(screen.getByText("Generate"));
+      fireEvent.click(screen.getByRole("button", { name: /Generate/i }));
     });
 
     await act(async () => {

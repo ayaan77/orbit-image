@@ -210,7 +210,8 @@ export function MessageComposer({
       });
 
       if (res.ok) {
-        const msg: Message = await res.json();
+        const data = await res.json();
+        const msg: Message = data.message ?? data;
         setContent("");
         setMentionQuery(null);
         setMentionResults([]);

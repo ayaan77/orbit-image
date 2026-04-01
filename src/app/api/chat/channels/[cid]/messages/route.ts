@@ -151,7 +151,7 @@ export async function POST(
       return validation.response;
     }
 
-    const { content, type, parentId, imageData } = validation.data;
+    const { content, type = 'text', parentId, imageData } = validation.data;
 
     // Verify parentId belongs to this channel to prevent cross-channel data leaks
     if (parentId) {

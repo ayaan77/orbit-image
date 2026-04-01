@@ -61,7 +61,7 @@ function makeRequest(): Request {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       socket_id: '123.456',
-      channel_name: 'private-workspace-ws_1',
+      channel_name: 'private-workspace-ws_1234567890abcdef12345678',
     }),
   });
 }
@@ -75,7 +75,7 @@ describe('POST /api/chat/pusher/auth', () => {
       success: true,
       data: {
         socket_id: '123.456',
-        channel_name: 'private-workspace-ws_1',
+        channel_name: 'private-workspace-ws_1234567890abcdef12345678',
       },
     } as any);
     mockRequireMember.mockResolvedValue('member');
@@ -92,7 +92,7 @@ describe('POST /api/chat/pusher/auth', () => {
 
     expect(res.status).toBe(200);
     expect(data.auth).toBe('pusher-key:signature');
-    expect(mockRequireMember).toHaveBeenCalledWith('ws_1', 'usr_test1');
+    expect(mockRequireMember).toHaveBeenCalledWith('ws_1234567890abcdef12345678', 'usr_test1');
   });
 
   it('authorizes channel subscription via workspace lookup', async () => {
@@ -101,12 +101,12 @@ describe('POST /api/chat/pusher/auth', () => {
       success: true,
       data: {
         socket_id: '123.456',
-        channel_name: 'private-channel-ch_1',
+        channel_name: 'private-channel-ch_1234567890abcdef12345678',
       },
     } as any);
     mockGetChannel.mockResolvedValue({
-      id: 'ch_1',
-      workspaceId: 'ws_1',
+      id: 'ch_1234567890abcdef12345678',
+      workspaceId: 'ws_1234567890abcdef12345678',
       name: 'general',
       description: null,
       isDm: false,
@@ -126,8 +126,8 @@ describe('POST /api/chat/pusher/auth', () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockGetChannel).toHaveBeenCalledWith('ch_1');
-    expect(mockRequireMember).toHaveBeenCalledWith('ws_1', 'usr_test1');
+    expect(mockGetChannel).toHaveBeenCalledWith('ch_1234567890abcdef12345678');
+    expect(mockRequireMember).toHaveBeenCalledWith('ws_1234567890abcdef12345678', 'usr_test1');
   });
 
   it('authorizes own mentions channel', async () => {
@@ -177,7 +177,7 @@ describe('POST /api/chat/pusher/auth', () => {
       success: true,
       data: {
         socket_id: '123.456',
-        channel_name: 'private-workspace-ws_1',
+        channel_name: 'private-workspace-ws_1234567890abcdef12345678',
       },
     } as any);
     mockRequireMember.mockRejectedValue(
@@ -197,7 +197,7 @@ describe('POST /api/chat/pusher/auth', () => {
       success: true,
       data: {
         socket_id: '123.456',
-        channel_name: 'private-workspace-ws_1',
+        channel_name: 'private-workspace-ws_1234567890abcdef12345678',
       },
     } as any);
     mockRequireMember.mockResolvedValue('member');

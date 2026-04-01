@@ -11,6 +11,7 @@ export function createMockChatContext(
     unreadMentionCount: 0,
     pendingShare: null,
     pusherClient: null,
+    activeChannelName: null,
     currentUserId: null,
     openPanel: vi.fn(),
     closePanel: vi.fn(),
