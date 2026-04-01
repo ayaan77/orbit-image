@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/client/api";
 import { MODEL_CATALOG, MODEL_IDS } from "@/lib/providers/models";
 import type { ModelId } from "@/lib/providers/models";
+import { useChatContext } from "@/components/chat/ChatProvider";
+import { ChannelPickerModal } from "@/components/chat/ChannelPickerModal";
+import { uploadImageToBlob } from "@/lib/mcp/blob";
 import styles from "./page.module.css";
 
 type Purpose = "blog-hero" | "social-og" | "ad-creative" | "case-study" | "icon" | "infographic";
@@ -71,7 +75,10 @@ const STUDIO_MODELS: readonly ModelId[] = MODEL_IDS.filter(
   (id) => id !== "grok-aurora"
 );
 
-export default function StudioPage() {
+function StudioPageInner() {
+  const searchParams = useSearchParams();
+  const { shareImage, pendingShare, clearPendingShare } = useChatContext();
+
   const [topic, setTopic] = useState("");
   const [brand, setBrand] = useState("");
   const [purpose, setPurpose] = useState<Purpose>("blog-hero");
@@ -98,7 +105,37 @@ export default function StudioPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [model, setModel] = useState<string>("");
 
+  // Track whether URL params have been applied (so we only do it once)
+  const urlParamsAppliedRef = useRef(false);
+
   const canSubmit = topic.trim().length >= 3;
+
+  // Task 3: Read URL params on mount for Regenerate with feedback flow
+  useEffect(() => {
+    if (urlParamsAppliedRef.current) return;
+
+    const promptParam = searchParams.get("prompt");
+    const modelParam = searchParams.get("model");
+    const brandParam = searchParams.get("brand");
+    const feedbackParam = searchParams.get("feedback");
+
+    if (promptParam) {
+      urlParamsAppliedRef.current = true;
+      const combinedTopic = feedbackParam
+        ? `${promptParam}\n\nFeedback: ${feedbackParam}`
+        : promptParam;
+      setTopic(combinedTopic);
+
+      if (modelParam && MODEL_IDS.includes(modelParam as ModelId)) {
+        setModel(modelParam);
+        setShowAdvanced(true);
+      }
+
+      if (brandParam) {
+        setBrand(brandParam);
+      }
+    }
+  }, [searchParams]);
 
   // Load brands
   useEffect(() => {
@@ -214,7 +251,38 @@ export default function StudioPage() {
     a.click();
   }, [generated]);
 
-  // Feature 3: Share handler
+  // Task 2: Share to channel handler
+  const handleShareToChannel = useCallback(async () => {
+    const img = generated?.images[0];
+    if (!img) return;
+
+    let imageUrl: string;
+
+    if (img.url) {
+      imageUrl = img.url;
+    } else if (img.base64) {
+      try {
+        const result = await uploadImageToBlob(img.base64, img.mimeType, "orbit-studio-share.png");
+        imageUrl = result.url;
+      } catch {
+        // Blob upload failed — fall back to data URL
+        imageUrl = `data:${img.mimeType};base64,${img.base64}`;
+      }
+    } else {
+      return;
+    }
+
+    shareImage({
+      imageUrl,
+      prompt: topic.trim(),
+      model: model || "",
+      brand: brand || generated?.brand || "",
+      mimeType: img.mimeType,
+      dimensions: img.dimensions,
+    });
+  }, [generated, topic, model, brand, shareImage]);
+
+  // Feature 3: Share handler (native/clipboard)
   const handleShare = useCallback(async () => {
     const img = generated?.images[0];
     if (!img) return;
@@ -458,6 +526,14 @@ export default function StudioPage() {
                 {shareLabel}
               </button>
               <button
+                className={styles.actionBtn}
+                onClick={handleShareToChannel}
+                type="button"
+                data-testid="share-to-channel-btn"
+              >
+                Share to Channel
+              </button>
+              <button
                 className={styles.actionBtnPrimary}
                 onClick={() => { setGenerated(null); setError(null); setShareLabel("Share"); }}
                 type="button"
@@ -473,6 +549,19 @@ export default function StudioPage() {
           </div>
         )}
       </div>
+
+      {/* Task 2: Channel picker modal — opens when pendingShare is set */}
+      {pendingShare && (
+        <ChannelPickerModal imageData={pendingShare} onClose={clearPendingShare} />
+      )}
     </div>
+  );
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense fallback={null}>
+      <StudioPageInner />
+    </Suspense>
   );
 }
