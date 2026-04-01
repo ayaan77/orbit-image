@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { ReactionBar } from "./ReactionBar";
 import { ThreadPreview } from "./ThreadPreview";
 import type { Message } from "@/lib/chat/types";
@@ -91,7 +91,7 @@ function highlightMentions(content: string): ReactNode {
         </span>
       );
     }
-    return part;
+    return <Fragment key={i}>{part}</Fragment>;
   });
 }
 
