@@ -41,6 +41,8 @@ export default function AdminWorkspacesPage() {
   const [members, setMembers] = useState<Record<string, readonly WorkspaceMember[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [expandedErrors, setExpandedErrors] = useState<Record<string, string | null>>({});
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export default function AdminWorkspacesPage() {
 
   const fetchWorkspaces = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await apiFetch("/api/chat/workspaces");
       if (res.ok) {
@@ -59,7 +62,7 @@ export default function AdminWorkspacesPage() {
         setWorkspaces(list);
       }
     } catch {
-      // ignore
+      setFetchError('Failed to load workspaces. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -70,6 +73,7 @@ export default function AdminWorkspacesPage() {
   }, [fetchWorkspaces]);
 
   const fetchMembers = useCallback(async (workspaceId: string) => {
+    setExpandedErrors((prev) => ({ ...prev, [workspaceId]: null }));
     try {
       const res = await apiFetch(
         `/api/chat/workspaces/${workspaceId}/members?q=`
@@ -82,7 +86,7 @@ export default function AdminWorkspacesPage() {
         setMembers((prev) => ({ ...prev, [workspaceId]: list }));
       }
     } catch {
-      // ignore
+      setExpandedErrors((prev) => ({ ...prev, [workspaceId]: 'Failed to load members. Please try again.' }));
     }
   }, []);
 
@@ -189,6 +193,10 @@ export default function AdminWorkspacesPage() {
         )}
       </div>
 
+      {fetchError && (
+        <p style={{ color: '#ef4444', padding: '0.5rem 0' }}>{fetchError}</p>
+      )}
+
       {loading ? (
         <div style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
           Loading workspaces…
@@ -219,6 +227,7 @@ export default function AdminWorkspacesPage() {
               workspace={ws}
               members={members[ws.id]}
               isExpanded={expanded[ws.id] ?? false}
+              memberError={expandedErrors[ws.id] ?? null}
               onToggle={() => toggleExpanded(ws.id)}
               onAddMemberClick={() => {
                 setAddingTo(ws.id);
@@ -246,6 +255,7 @@ interface WorkspaceCardProps {
   readonly workspace: WorkspaceRow;
   readonly members?: readonly WorkspaceMember[];
   readonly isExpanded: boolean;
+  readonly memberError: string | null;
   readonly onToggle: () => void;
   readonly onAddMemberClick: () => void;
   readonly isAddingMember: boolean;
@@ -260,6 +270,7 @@ function WorkspaceCard({
   workspace,
   members,
   isExpanded,
+  memberError,
   onToggle,
   onAddMemberClick,
   isAddingMember,
@@ -453,7 +464,11 @@ function WorkspaceCard({
             padding: "10px 18px 14px",
           }}
         >
-          {members === undefined ? (
+          {memberError ? (
+            <div style={{ color: '#ef4444', fontSize: "0.8125rem" }}>
+              {memberError}
+            </div>
+          ) : members === undefined ? (
             <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
               Loading members…
             </div>

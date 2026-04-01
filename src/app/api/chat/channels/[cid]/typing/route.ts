@@ -2,8 +2,11 @@ import { z } from 'zod';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { ChatError, getChannelById, requireWorkspaceMember } from '@/lib/chat/db';
 import { triggerPusher } from '@/lib/chat/pusher';
+import { createLogger } from '@/lib/logging/logger';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+
+const logger = createLogger({ service: 'chat:typing' });
 
 const TypingSchema = z.object({
   event: z.enum(['start', 'stop']),
@@ -78,7 +81,7 @@ export async function POST(
     if (err instanceof ChatError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
-    console.error('[chat] typing event error', err);
+    logger.error('typing event error', { error: err });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

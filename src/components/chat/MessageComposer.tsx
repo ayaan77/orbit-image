@@ -35,6 +35,23 @@ export function MessageComposer({
   const typingStartSentRef = useRef(false);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clean up typing timer on unmount and send typing.stop if still active
+  useEffect(() => {
+    return () => {
+      if (typingStopTimerRef.current) {
+        clearTimeout(typingStopTimerRef.current);
+      }
+      // Send typing.stop on unmount if we were actively typing
+      if (typingStartSentRef.current && channelId) {
+        typingStartSentRef.current = false;
+        apiFetch(`/api/chat/channels/${channelId}/typing`, {
+          method: "POST",
+          body: JSON.stringify({ event: "stop" }),
+        }).catch(() => {});
+      }
+    };
+  }, [channelId]);
+
   // Auto-resize textarea
   useEffect(() => {
     const el = textareaRef.current;
