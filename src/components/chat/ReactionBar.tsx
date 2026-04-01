@@ -5,6 +5,9 @@ import { apiFetch } from "@/lib/client/api";
 import type { Reaction } from "@/lib/chat/types";
 import styles from "./ReactionBar.module.css";
 
+// Six curated preset emojis cover the most common reactions without adding bundle weight.
+// emoji-mart (full picker) can be async-loaded here in future if a richer picker is needed:
+//   const { Picker } = await import('emoji-mart') — lazy load to keep the initial bundle lean.
 const PRESET_EMOJIS = ["\u{1F44D}", "\u{2764}\u{FE0F}", "\u{1F525}", "\u{1F602}", "\u{1F389}", "\u{1F440}"] as const;
 
 interface ReactionBarProps {

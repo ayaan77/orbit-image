@@ -118,9 +118,54 @@
   text-align: center;
 }
 
+/* ─── Pusher Unavailable Banner ─── */
+.pusherBanner {
+  padding: 6px 14px;
+  background: rgba(251, 191, 36, 0.1);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  font-size: 0.6875rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ─── Header Actions ─── */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Back Button (mobile) ─── */
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: #818cf8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.backBtn:hover {
+  color: #e0e7ff;
+}
+
 /* ─── Mobile ─── */
 @media (max-width: 639px) {
   .panel {
     width: 100vw;
+  }
+
+  .mobileSidebar {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 }

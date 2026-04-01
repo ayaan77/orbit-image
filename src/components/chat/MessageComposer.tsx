@@ -32,6 +32,8 @@ export function MessageComposer({
   const [mentionIndex, setMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingStartSentRef = useRef(false);
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -115,19 +117,66 @@ export function MessageComposer({
     [content]
   );
 
+  // Fire typing.start on the current channel (debounced, stops after 2s idle)
+  const sendTypingStart = useCallback(() => {
+    if (!channelId) return;
+
+    if (!typingStartSentRef.current) {
+      typingStartSentRef.current = true;
+      apiFetch(`/api/chat/channels/${channelId}/typing`, {
+        method: "POST",
+        body: JSON.stringify({ event: "start" }),
+      }).catch(() => {
+        // Ignore — typing events are best-effort
+      });
+    }
+
+    // Reset the stop timer
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    typingStopTimerRef.current = setTimeout(() => {
+      typingStartSentRef.current = false;
+      if (!channelId) return;
+      apiFetch(`/api/chat/channels/${channelId}/typing`, {
+        method: "POST",
+        body: JSON.stringify({ event: "stop" }),
+      }).catch(() => {});
+    }, 2000);
+  }, [channelId]);
+
+  const sendTypingStop = useCallback(() => {
+    if (!channelId) return;
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (typingStartSentRef.current) {
+      typingStartSentRef.current = false;
+      apiFetch(`/api/chat/channels/${channelId}/typing`, {
+        method: "POST",
+        body: JSON.stringify({ event: "stop" }),
+      }).catch(() => {});
+    }
+  }, [channelId]);
+
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       setContent(value);
       detectMentionQuery(value, e.target.selectionStart);
+      if (value.trim()) {
+        sendTypingStart();
+      }
     },
-    [detectMentionQuery]
+    [detectMentionQuery, sendTypingStart]
   );
 
   const handleSubmit = useCallback(async () => {
     const trimmed = content.trim();
     if (!trimmed || isSending) return;
     if (!parentId && !channelId) return;
+
+    // Stop typing indicator immediately on send
+    sendTypingStop();
 
     setIsSending(true);
     try {
@@ -155,7 +204,7 @@ export function MessageComposer({
     } finally {
       setIsSending(false);
     }
-  }, [content, isSending, channelId, parentId, onSent]);
+  }, [content, isSending, channelId, parentId, onSent, sendTypingStop]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {

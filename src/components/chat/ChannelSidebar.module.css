@@ -95,3 +95,11 @@
   color: #818cf8;
   text-align: center;
 }
+
+/* ─── Mobile: sidebar fills the full panel width ─── */
+@media (max-width: 639px) {
+  .sidebar {
+    width: 100%;
+    border-right: none;
+  }
+}

@@ -11,12 +11,19 @@ import type { Message } from "@/lib/chat/types";
 import type Pusher from "pusher-js";
 import styles from "./MessagePane.module.css";
 
+interface TypingUser {
+  readonly userId: string;
+  readonly username: string;
+}
+
 export function MessagePane() {
   const { activeChannelId, pusherClient, currentUserId } = useChatContext();
   const [messages, setMessages] = useState<readonly Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
+  const [typingState, setTypingState] = useState<Record<string, TypingUser>>({});
+  const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const oldestCursorRef = useRef<string | null>(null);
 
   // Reset and fetch messages when channel changes
@@ -105,11 +112,49 @@ export function MessagePane() {
       }
     );
 
+    channel.bind("typing.start", (data: { userId: string; username: string }) => {
+      // Don't show typing indicator for the current user
+      if (data.userId === currentUserId) return;
+
+      setTypingState((prev) => ({ ...prev, [data.userId]: data }));
+
+      // Auto-clear after 3s as a safety net if typing.stop is missed
+      const timers = typingTimersRef.current;
+      if (timers[data.userId]) clearTimeout(timers[data.userId]);
+      timers[data.userId] = setTimeout(() => {
+        setTypingState((prev) => {
+          const next = { ...prev };
+          delete next[data.userId];
+          return next;
+        });
+        delete timers[data.userId];
+      }, 3000);
+    });
+
+    channel.bind("typing.stop", (data: { userId: string; username?: string }) => {
+      if (data.userId === currentUserId) return;
+
+      const timers = typingTimersRef.current;
+      if (timers[data.userId]) {
+        clearTimeout(timers[data.userId]);
+        delete timers[data.userId];
+      }
+      setTypingState((prev) => {
+        const next = { ...prev };
+        delete next[data.userId];
+        return next;
+      });
+    });
+
     return () => {
       channel.unbind_all();
       pusher.unsubscribe(channelName);
+      // Clear all typing timers on unmount
+      const timers = typingTimersRef.current;
+      Object.values(timers).forEach(clearTimeout);
+      typingTimersRef.current = {};
     };
-  }, [activeChannelId, pusherClient]);
+  }, [activeChannelId, pusherClient, currentUserId]);
 
   const handleLoadMore = useCallback(async () => {
     if (!activeChannelId || !oldestCursorRef.current) return;
@@ -181,7 +226,7 @@ export function MessagePane() {
         />
       )}
 
-      <TypingIndicator channelId={activeChannelId} />
+      <TypingIndicator typingUsers={Object.values(typingState).map((u) => u.username)} />
       <MessageComposer
         channelId={activeChannelId}
         onSent={handleMessageSent}

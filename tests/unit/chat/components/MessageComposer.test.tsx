@@ -103,8 +103,11 @@ describe("MessageComposer", () => {
     const input = screen.getByTestId("message-input");
     await userEvent.type(input, "line1{shift>}{enter}{/shift}line2");
 
-    // Should NOT have called the API
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    // Should NOT have submitted a message (messages endpoint not called)
+    const messageCalls = mockApiFetch.mock.calls.filter(
+      (args: unknown[]) => typeof args[0] === "string" && (args[0] as string).includes("/messages")
+    );
+    expect(messageCalls).toHaveLength(0);
     expect(onSent).not.toHaveBeenCalled();
   });
 
