@@ -11,6 +11,10 @@ const PusherAuthSchema = z.object({
   channel_name: z.string().min(1),
 });
 
+// Strict ID format validators — prevent prefix-bypass attacks
+const WORKSPACE_ID_RE = /^ws_[0-9a-f]{24}$/;
+const CHANNEL_ID_RE = /^ch_[0-9a-f]{24}$/;
+
 export async function POST(req: NextRequest) {
   const auth = await authenticateRequest(req);
   if (auth.type === 'error') {
@@ -35,12 +39,19 @@ export async function POST(req: NextRequest) {
 
     const { socket_id: socketId, channel_name: channelName } = validation.data;
 
-    // Parse and authorize channel name
+    // Parse and authorize channel name.
+    // Extract ID only after validating strict format to prevent prefix-bypass attacks.
     if (channelName.startsWith('private-workspace-')) {
-      const wid = channelName.replace('private-workspace-', '');
+      const wid = channelName.slice('private-workspace-'.length);
+      if (!WORKSPACE_ID_RE.test(wid)) {
+        return NextResponse.json({ error: 'Invalid channel name' }, { status: 403 });
+      }
       await requireWorkspaceMember(wid, userId);
     } else if (channelName.startsWith('private-channel-')) {
-      const cid = channelName.replace('private-channel-', '');
+      const cid = channelName.slice('private-channel-'.length);
+      if (!CHANNEL_ID_RE.test(cid)) {
+        return NextResponse.json({ error: 'Invalid channel name' }, { status: 403 });
+      }
       const channel = await getChannelById(cid);
       if (!channel) {
         return NextResponse.json(
@@ -50,7 +61,7 @@ export async function POST(req: NextRequest) {
       }
       await requireWorkspaceMember(channel.workspaceId, userId);
     } else if (channelName.startsWith('private-mentions-')) {
-      const uid = channelName.replace('private-mentions-', '');
+      const uid = channelName.slice('private-mentions-'.length);
       if (uid !== userId) {
         return NextResponse.json(
           { error: 'Cannot subscribe to another user\'s mentions' },

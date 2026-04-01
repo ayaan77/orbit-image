@@ -2,6 +2,8 @@ import { randomBytes } from 'crypto';
 import { getDb } from '@/lib/storage/db';
 
 const MENTION_PATTERN = /@(\w+)/g;
+// Cap to prevent DB/Pusher amplification via messages with many @mentions
+const MAX_MENTIONS = 20;
 
 const newMentionId = () => `men_${randomBytes(12).toString('hex')}`;
 
@@ -23,6 +25,7 @@ export async function parseMentions(
     const username = match[1];
     if (username) {
       usernames.add(username);
+      if (usernames.size >= MAX_MENTIONS) break;
     }
   }
 

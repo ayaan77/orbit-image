@@ -287,6 +287,17 @@ export async function getMessages(
   );
 }
 
+/** Fetch a single message by ID (used for parentId channel-scope validation). */
+export async function getMessageById(messageId: string): Promise<{ id: string; channelId: string } | null> {
+  const db = getDb();
+  if (!db) return null;
+  const rows = await db`
+    SELECT id, channel_id FROM messages WHERE id = ${messageId} LIMIT 1
+  `;
+  if (rows.length === 0) return null;
+  return { id: rows[0].id as string, channelId: rows[0].channel_id as string };
+}
+
 export async function createMessage(data: {
   readonly channelId: string;
   readonly userId: string;
