@@ -142,8 +142,8 @@ export function ChatPanel() {
       {/* Workspace pills */}
       <WorkspaceSwitcher />
 
-      {/* Pusher unavailable banner */}
-      {pusherChecked && !pusherClient && (
+      {/* Pusher unavailable banner — only shown when Pusher is configured but connection failed */}
+      {pusherChecked && !!process.env.NEXT_PUBLIC_PUSHER_KEY && !pusherClient && (
         <div className={styles.pusherBanner} role="alert">
           Real-time updates unavailable — refresh to retry.
         </div>
