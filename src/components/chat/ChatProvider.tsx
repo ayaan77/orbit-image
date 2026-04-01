@@ -34,6 +34,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(null);
   const [activeChannelId, setActiveChannelIdState] = useState<string | null>(null);
+  const [activeChannelName, setActiveChannelNameState] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [unreadMentionCount, setUnreadMentionCount] = useState(0);
   const [pendingShare, setPendingShare] = useState<ImageShareData | null>(null);
@@ -61,8 +62,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveWorkspaceIdState(workspaceId);
   }, []);
 
-  const setActiveChannel = useCallback((channelId: string) => {
+  const setActiveChannel = useCallback((channelId: string, channelName?: string) => {
     setActiveChannelIdState(channelId);
+    setActiveChannelNameState(channelName ?? null);
   }, []);
 
   // ── Image sharing ───────────────────────────────────────────────────
@@ -188,6 +190,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     () => ({
       activeWorkspaceId,
       activeChannelId,
+      activeChannelName,
       isPanelOpen,
       unreadMentionCount,
       pendingShare,
@@ -204,6 +207,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [
       activeWorkspaceId,
       activeChannelId,
+      activeChannelName,
       isPanelOpen,
       unreadMentionCount,
       pendingShare,

@@ -140,7 +140,7 @@ export function ChannelSidebar() {
               channel={ch}
               isActive={ch.id === activeChannelId}
               realtimeUnread={unreadCounts[ch.id] ?? 0}
-              onClick={() => setActiveChannel(ch.id)}
+              onClick={() => setActiveChannel(ch.id, ch.name)}
             />
           ))}
         </>
@@ -156,7 +156,7 @@ export function ChannelSidebar() {
               channel={ch}
               isActive={ch.id === activeChannelId}
               realtimeUnread={unreadCounts[ch.id] ?? 0}
-              onClick={() => setActiveChannel(ch.id)}
+              onClick={() => setActiveChannel(ch.id, ch.name)}
             />
           ))}
         </>

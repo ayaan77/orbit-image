@@ -1,6 +1,6 @@
 /* ─── Channel Sidebar ─── */
 .sidebar {
-  width: 120px;
+  width: 152px;
   flex-shrink: 0;
   background: #1a1740;
   border-right: 1px solid rgba(255, 255, 255, 0.08);

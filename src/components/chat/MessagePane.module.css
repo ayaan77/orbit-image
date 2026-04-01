@@ -7,6 +7,34 @@
   background: #1e1b4b;
 }
 
+/* ─── Channel Header ─── */
+.channelHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.channelHashIcon {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #6366f1;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.channelHeaderName {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e0e7ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ─── Loading / Empty ─── */
 .loading {
   flex: 1;
@@ -23,16 +51,24 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   color: #818cf8;
   font-size: 0.8125rem;
   padding: 24px;
   text-align: center;
 }
 
+.emptyIcon {
+  width: 40px;
+  height: 40px;
+  opacity: 0.3;
+}
+
 .emptyHint {
   font-size: 0.6875rem;
-  opacity: 0.6;
+  opacity: 0.55;
+  max-width: 180px;
+  line-height: 1.5;
 }
 
 /* ─── Thread Pane Overlay ─── */
