@@ -618,7 +618,7 @@ function StudioPageInner() {
               <>
                 <img
                   className={styles.featImage}
-                  src={latest.imageDataUrl}
+                  src={latest.imageDataUrl || undefined}
                   alt={latest.topic}
                 />
                 <div className={styles.featTop}>
