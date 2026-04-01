@@ -12,12 +12,14 @@ interface ImageShareCardProps {
   readonly message: Message;
   readonly onOpenThread: (messageId: string) => void;
   readonly currentUserId?: string;
+  readonly isAdmin?: boolean;
 }
 
 export function ImageShareCard({
   message,
   onOpenThread,
   currentUserId,
+  isAdmin,
 }: ImageShareCardProps) {
   const { openStudioWithContext } = useChatContext();
   const [expanded, setExpanded] = useState(false);
@@ -128,8 +130,9 @@ export function ImageShareCard({
         />
       )}
 
-      {/* Regenerate button — shown to author */}
-      {isAuthor && (
+      {/* Regenerate button — shown to author or admin */}
+      {/* TODO: pass real isAdmin value once workspace role is available from context */}
+      {(isAuthor || isAdmin) && (
         <button
           className={styles.regenerateBtn}
           onClick={handleRegenerate}

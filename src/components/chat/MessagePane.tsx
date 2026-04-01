@@ -17,7 +17,31 @@ export function MessagePane() {
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
   const oldestCursorRef = useRef<string | null>(null);
+
+  // Fetch current user id once on mount so isAuthor works in child components
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/auth/me")
+      .then((res) => {
+        if (res.ok && !cancelled) {
+          return res.json();
+        }
+      })
+      .then((data: { user?: { id?: string }; id?: string } | undefined) => {
+        if (!cancelled && data) {
+          const id = data?.user?.id ?? data?.id;
+          if (id) setCurrentUserId(id);
+        }
+      })
+      .catch(() => {
+        // Ignore — currentUserId stays undefined, isAuthor will be false
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Reset and fetch messages when channel changes
   useEffect(() => {
@@ -177,6 +201,7 @@ export function MessagePane() {
           onLoadMore={handleLoadMore}
           onOpenThread={setThreadParentId}
           onDeleteMessage={handleDeleteMessage}
+          currentUserId={currentUserId}
         />
       )}
 

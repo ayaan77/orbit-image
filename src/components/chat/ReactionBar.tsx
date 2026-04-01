@@ -16,6 +16,14 @@ export function ReactionBar({ messageId, reactions }: ReactionBarProps) {
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  // Optimistic local state — mirrors parent reactions prop, updated immediately on click
+  const [optimisticReactions, setOptimisticReactions] = useState<readonly Reaction[]>(reactions);
+
+  // Keep in sync when parent reactions change (Pusher update or parent re-render)
+  useEffect(() => {
+    setOptimisticReactions(reactions);
+  }, [reactions]);
+
   // Close picker on outside click
   useEffect(() => {
     if (!showPicker) return;
@@ -31,21 +39,42 @@ export function ReactionBar({ messageId, reactions }: ReactionBarProps) {
   const toggleReaction = useCallback(
     async (emoji: string) => {
       setShowPicker(false);
+
+      // Optimistic update: toggle the reaction locally before the API call
+      setOptimisticReactions((prev) => {
+        const existing = prev.find((r) => r.emoji === emoji);
+        if (existing) {
+          // Toggle off if userReacted, toggle on if not
+          return prev.map((r) =>
+            r.emoji === emoji
+              ? {
+                  ...r,
+                  count: r.userReacted ? r.count - 1 : r.count + 1,
+                  userReacted: !r.userReacted,
+                }
+              : r
+          ).filter((r) => r.count > 0);
+        }
+        // New reaction
+        return [...prev, { emoji, count: 1, userReacted: true }];
+      });
+
       try {
         await apiFetch(`/api/chat/messages/${messageId}/reactions`, {
           method: "POST",
           body: JSON.stringify({ emoji }),
         });
       } catch {
-        // Network error — ignore, real-time will reconcile
+        // API failed — revert to the last confirmed server state
+        setOptimisticReactions(reactions);
       }
     },
-    [messageId]
+    [messageId, reactions]
   );
 
   return (
     <div className={styles.bar} data-testid="reaction-bar">
-      {reactions.map((reaction) => {
+      {optimisticReactions.map((reaction) => {
         const pillClass = reaction.userReacted
           ? `${styles.pill} ${styles.pillActive}`
           : styles.pill;
