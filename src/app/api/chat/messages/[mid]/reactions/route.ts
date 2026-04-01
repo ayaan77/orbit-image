@@ -54,7 +54,7 @@ export async function POST(
         await triggerPusher(
           `private-channel-${channelId}`,
           'reaction.toggled',
-          { messageId: mid, emoji, count, added },
+          { messageId: mid, emoji, count, added, channelId },
         );
       }
     }

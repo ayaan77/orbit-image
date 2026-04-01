@@ -116,8 +116,8 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Rate limit message sends at 60/min per user
-  const rateLimitResponse = await checkRateLimit(req, 60);
+  // Rate limit message sends at 60/min per user, keyed by userId
+  const rateLimitResponse = await checkRateLimit(req, 60, `chat:msg:${userId}`);
   if (rateLimitResponse) {
     return rateLimitResponse;
   }

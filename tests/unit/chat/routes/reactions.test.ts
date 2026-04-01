@@ -108,6 +108,7 @@ describe('POST /api/chat/messages/[mid]/reactions', () => {
         emoji: 'thumbsup',
         count: 1,
         added: true,
+        channelId: 'ch_1',
       },
     );
   });
