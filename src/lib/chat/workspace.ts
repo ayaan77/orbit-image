@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { createCachedCortexClient } from '@/lib/cortex/cached-client';
 import { getDb } from '@/lib/storage/db';
+import type { WorkspaceRole } from '@/lib/chat/types';
 
 const DEFAULT_CHANNELS = [
   { name: 'general', description: 'General discussion' },
@@ -18,6 +19,25 @@ function slugify(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+/**
+ * Inserts or updates a member in a workspace.
+ * No-ops gracefully when the database is not configured.
+ */
+export async function addMemberToWorkspace(
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceRole = 'member'
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+
+  await db`
+    INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
+    VALUES (${workspaceId}, ${userId}, ${role}, NOW())
+    ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role
+  `;
 }
 
 /**
