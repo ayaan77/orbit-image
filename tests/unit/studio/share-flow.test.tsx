@@ -20,10 +20,6 @@ vi.mock("@/lib/client/api", () => ({
   apiFetch: vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }),
 }));
 
-vi.mock("@/lib/mcp/blob", () => ({
-  uploadImageToBlob: vi.fn().mockResolvedValue({ url: "https://blob.example.com/img.png", pathname: "img.png" }),
-}));
-
 // Mock ChatProvider — controlled via mockChatCtx variable
 let mockChatCtx = createMockChatContext();
 
@@ -51,9 +47,6 @@ const mockSearchParams = {
 
 // ── Import component under test ───────────────────────────────────────────
 import StudioPage from "@/app/studio/page";
-import { uploadImageToBlob } from "@/lib/mcp/blob";
-
-const mockUploadImageToBlob = uploadImageToBlob as ReturnType<typeof vi.fn>;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -180,22 +173,28 @@ describe("Studio — Share to Channel button", () => {
     expect(callArg.dimensions).toEqual({ width: 1024, height: 1024 });
   });
 
-  it("uploads base64 to blob before calling shareImage when result has no URL", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        images: [
-          {
-            base64: "abc123",
-            mimeType: "image/png",
-            dimensions: { width: 512, height: 512 },
-          },
-        ],
-        brand: "testbrand",
-        metadata: { processingTimeMs: 500, brandContextUsed: false, demo: false },
-      }),
-    });
+  it("uploads base64 via API route before calling shareImage when result has no URL", async () => {
+    // fetch is called twice: once for generate, once for upload-blob
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          images: [
+            {
+              base64: "abc123",
+              mimeType: "image/png",
+              dimensions: { width: 512, height: 512 },
+            },
+          ],
+          brand: "testbrand",
+          metadata: { processingTimeMs: 500, brandContextUsed: false, demo: false },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ url: "https://blob.example.com/img.png" }),
+      });
 
     const shareImageMock = vi.fn();
     mockChatCtx = createMockChatContext({ shareImage: shareImageMock });
@@ -212,7 +211,16 @@ describe("Studio — Share to Channel button", () => {
       fireEvent.click(screen.getByTestId("share-to-channel-btn"));
     });
 
-    expect(mockUploadImageToBlob).toHaveBeenCalledWith("abc123", "image/png", "orbit-studio-share.png");
+    // Verify the upload-blob API route was called with the base64 payload
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const uploadCall = fetchMock.mock.calls.find(
+      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("upload-blob")
+    );
+    expect(uploadCall).toBeDefined();
+    const uploadBody = JSON.parse((uploadCall![1] as RequestInit).body as string);
+    expect(uploadBody.base64).toBe("abc123");
+    expect(uploadBody.mimeType).toBe("image/png");
+
     expect(shareImageMock).toHaveBeenCalledOnce();
     const callArg: ImageShareData = shareImageMock.mock.calls[0][0];
     expect(callArg.imageUrl).toBe("https://blob.example.com/img.png");

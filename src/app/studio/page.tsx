@@ -8,7 +8,6 @@ import { MODEL_CATALOG, MODEL_IDS } from "@/lib/providers/models";
 import type { ModelId } from "@/lib/providers/models";
 import { useChatContext } from "@/components/chat/ChatProvider";
 import { ChannelPickerModal } from "@/components/chat/ChannelPickerModal";
-import { uploadImageToBlob } from "@/lib/mcp/blob";
 import styles from "./page.module.css";
 
 type Purpose = "blog-hero" | "social-og" | "ad-creative" | "case-study" | "icon" | "infographic";
@@ -82,7 +81,6 @@ function StudioPageInner() {
   const [topic, setTopic] = useState("");
   const [brand, setBrand] = useState("");
   const [purpose, setPurpose] = useState<Purpose>("blog-hero");
-  const [showMore, setShowMore] = useState(false);
   const [brands, setBrands] = useState<readonly BrandOption[]>([]);
   const [brandsLoading, setBrandsLoading] = useState(true);
 
@@ -100,6 +98,9 @@ function StudioPageInner() {
 
   // Feature 3: Share button
   const [shareLabel, setShareLabel] = useState("Share");
+
+  // Share to channel loading state
+  const [isSharing, setIsSharing] = useState(false);
 
   // Feature 4: Advanced model selector
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -253,34 +254,53 @@ function StudioPageInner() {
 
   // Task 2: Share to channel handler
   const handleShareToChannel = useCallback(async () => {
+    if (isSharing) return;
     const img = generated?.images[0];
     if (!img) return;
 
-    let imageUrl: string;
-
-    if (img.url) {
-      imageUrl = img.url;
-    } else if (img.base64) {
-      try {
-        const result = await uploadImageToBlob(img.base64, img.mimeType, "orbit-studio-share.png");
-        imageUrl = result.url;
-      } catch {
-        // Blob upload failed — fall back to data URL
-        imageUrl = `data:${img.mimeType};base64,${img.base64}`;
-      }
-    } else {
+    if (!img.url && !img.base64) {
+      setError('Image data unavailable. Please regenerate the image first.');
       return;
     }
 
-    shareImage({
-      imageUrl,
-      prompt: topic.trim(),
-      model: model || "",
-      brand: brand || generated?.brand || "",
-      mimeType: img.mimeType,
-      dimensions: img.dimensions,
-    });
-  }, [generated, topic, model, brand, shareImage]);
+    setIsSharing(true);
+    try {
+      let imageUrl: string;
+
+      if (img.url) {
+        imageUrl = img.url;
+      } else {
+        const res = await fetch('/api/studio/upload-blob', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            base64: img.base64,
+            mimeType: img.mimeType,
+            filename: `share-${Date.now()}.png`,
+          }),
+        });
+        if (!res.ok) {
+          setError('Image upload failed. Try downloading and re-sharing.');
+          return;
+        }
+        const data = await res.json();
+        imageUrl = data.url;
+      }
+
+      shareImage({
+        imageUrl,
+        prompt: topic.trim(),
+        model: model || "",
+        brand: brand || generated?.brand || "",
+        mimeType: img.mimeType,
+        dimensions: img.dimensions,
+      });
+    } catch {
+      setError('Image upload failed. Try downloading and re-sharing.');
+    } finally {
+      setIsSharing(false);
+    }
+  }, [isSharing, generated, topic, model, brand, shareImage]);
 
   // Feature 3: Share handler (native/clipboard)
   const handleShare = useCallback(async () => {
@@ -337,9 +357,6 @@ function StudioPageInner() {
       : null);
 
   const hasResult = generated && imageUrl && !loading;
-  const primaryPurposes = PURPOSES.filter((p) => p.primary);
-  const morePurposes = PURPOSES.filter((p) => !p.primary);
-  const isMoreSelected = morePurposes.some((p) => p.id === purpose);
 
   return (
     <div className={styles.page}>
@@ -530,8 +547,10 @@ function StudioPageInner() {
                 onClick={handleShareToChannel}
                 type="button"
                 data-testid="share-to-channel-btn"
+                disabled={isSharing}
+                aria-label="Share generated image to chat channel"
               >
-                Share to Channel
+                {isSharing ? 'Sharing...' : 'Share to Channel'}
               </button>
               <button
                 className={styles.actionBtnPrimary}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/client/api";
 import type { ImageShareData, Workspace, Channel } from "@/lib/chat/types";
+import styles from "./ChannelPickerModal.module.css";
 
 interface ChannelPickerModalProps {
   onClose: () => void;
@@ -12,6 +13,7 @@ interface ChannelPickerModalProps {
 export function ChannelPickerModal({ onClose, imageData }: ChannelPickerModalProps) {
   const [channels, setChannels] = useState<readonly Channel[]>([]);
   const [selectedChannelId, setSelectedChannelId] = useState<string>("");
+  const [loadingChannels, setLoadingChannels] = useState(true);
   const [caption, setCaption] = useState("");
   const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +52,13 @@ export function ChannelPickerModal({ onClose, imageData }: ChannelPickerModalPro
           if (allChannels.length > 0) {
             setSelectedChannelId(allChannels[0].id);
           }
+          setLoadingChannels(false);
         }
       } catch {
         // Network error — modal stays empty
+        if (!cancelled) {
+          setLoadingChannels(false);
+        }
       }
     }
 
@@ -96,53 +102,25 @@ export function ChannelPickerModal({ onClose, imageData }: ChannelPickerModalPro
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.6)",
-      }}
+      className={styles.overlay}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        style={{
-          background: "#1e1f2e",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "12px",
-          padding: "24px",
-          width: "360px",
-          maxWidth: "calc(100vw - 32px)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        <h3 style={{ margin: 0, fontSize: "1rem", color: "#e0e7ff" }}>
-          Share to Channel
-        </h3>
+      <div className={styles.modal}>
+        <h3 className={styles.title}>Share to Channel</h3>
 
-        {channels.length === 0 ? (
-          <p style={{ color: "#818cf8", fontSize: "0.875rem", margin: 0 }}>
-            Loading channels…
+        {loadingChannels ? (
+          <p className={styles.loadingText}>Loading channels…</p>
+        ) : channels.length === 0 ? (
+          <p className={styles.emptyText}>
+            No channels available. Ask an admin to create channels in your workspace.
           </p>
         ) : (
           <select
             value={selectedChannelId}
             onChange={(e) => setSelectedChannelId(e.target.value)}
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: "6px",
-              color: "#e0e7ff",
-              padding: "8px 10px",
-              fontSize: "0.875rem",
-              width: "100%",
-            }}
+            className={styles.select}
           >
             {channels.map((ch) => (
               <option key={ch.id} value={ch.id}>
@@ -157,39 +135,19 @@ export function ChannelPickerModal({ onClose, imageData }: ChannelPickerModalPro
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           rows={3}
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: "6px",
-            color: "#e0e7ff",
-            padding: "8px 10px",
-            fontSize: "0.875rem",
-            width: "100%",
-            resize: "vertical",
-            fontFamily: "inherit",
-            boxSizing: "border-box",
-          }}
+          maxLength={500}
+          className={styles.textarea}
         />
 
         {error && (
-          <p style={{ color: "#f87171", fontSize: "0.8125rem", margin: 0 }}>
-            {error}
-          </p>
+          <p className={styles.errorText}>{error}</p>
         )}
 
-        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+        <div className={styles.actions}>
           <button
             onClick={onClose}
             type="button"
-            style={{
-              padding: "8px 16px",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "6px",
-              color: "#94a3b8",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-            }}
+            className={styles.cancelBtn}
           >
             Cancel
           </button>
@@ -197,16 +155,7 @@ export function ChannelPickerModal({ onClose, imageData }: ChannelPickerModalPro
             onClick={handlePost}
             disabled={isPosting || !selectedChannelId}
             type="button"
-            style={{
-              padding: "8px 16px",
-              background: isPosting ? "rgba(99,102,241,0.5)" : "#6366f1",
-              border: "none",
-              borderRadius: "6px",
-              color: "#fff",
-              cursor: isPosting ? "not-allowed" : "pointer",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-            }}
+            className={styles.postBtn}
           >
             {isPosting ? "Posting…" : "Post"}
           </button>
