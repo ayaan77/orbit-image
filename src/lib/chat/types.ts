@@ -84,10 +84,12 @@ export interface ChatContextValue {
   readonly activeChannelId: string | null;
   readonly isPanelOpen: boolean;
   readonly unreadMentionCount: number;
+  readonly pendingShare: ImageShareData | null;
   readonly openPanel: (channelId?: string) => void;
   readonly closePanel: () => void;
   readonly setActiveWorkspace: (workspaceId: string) => void;
   readonly setActiveChannel: (channelId: string) => void;
   readonly shareImage: (data: ImageShareData) => void;
+  readonly clearPendingShare: () => void;
   readonly openStudioWithContext: (ctx: StudioContext) => void;
 }
