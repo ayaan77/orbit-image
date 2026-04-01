@@ -186,6 +186,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       isPanelOpen,
       unreadMentionCount,
       pendingShare,
+      pusherClient: pusherRef.current,
       openPanel,
       closePanel,
       setActiveWorkspace,

@@ -72,6 +72,12 @@ export interface ImageShareData {
   readonly generationRef?: string;
 }
 
+export interface MemberSummary {
+  readonly id: string;
+  readonly username: string;
+  readonly role: WorkspaceRole;
+}
+
 export interface StudioContext {
   readonly prompt: string;
   readonly model: string;
@@ -85,6 +91,7 @@ export interface ChatContextValue {
   readonly isPanelOpen: boolean;
   readonly unreadMentionCount: number;
   readonly pendingShare: ImageShareData | null;
+  readonly pusherClient: unknown | null; // Pusher instance (typed as unknown to avoid exposing pusher-js in types)
   readonly openPanel: (channelId?: string) => void;
   readonly closePanel: () => void;
   readonly setActiveWorkspace: (workspaceId: string) => void;

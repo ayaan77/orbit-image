@@ -1,0 +1,22 @@
+/* ─── Thread Preview ─── */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  font-size: 0.6875rem;
+  color: #818cf8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.link:hover {
+  color: #6366f1;
+  text-decoration: underline;
+}
+
+.arrow {
+  font-size: 0.625rem;
+}

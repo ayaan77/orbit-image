@@ -1,0 +1,111 @@
+/* ─── Chat Panel Container ─── */
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 380px;
+  background: #1e1b4b;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 280ms ease;
+  z-index: 999;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+}
+
+.open {
+  transform: translateX(0);
+}
+
+/* ─── Panel Header ─── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e0e7ff;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: #818cf8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e7ff;
+}
+
+/* ─── Workspace Switcher ─── */
+.workspaceSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workspaceSwitcher::-webkit-scrollbar {
+  display: none;
+}
+
+.workspacePill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: #312e81;
+  color: #e0e7ff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+}
+
+.workspacePill:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.workspacePillActive {
+  border-color: #6366f1;
+  background: #4338ca;
+}
+
+/* ─── Content Layout ─── */
+.content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─── Mobile ─── */
+@media (max-width: 639px) {
+  .panel {
+    width: 100vw;
+  }
+}
