@@ -9,11 +9,14 @@ import styles from "./ChatPanel.module.css";
 export function WorkspaceSwitcher() {
   const { activeWorkspaceId, setActiveWorkspace } = useChatContext();
   const [workspaces, setWorkspaces] = useState<readonly Workspace[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchWorkspaces() {
+      setLoading(true);
       try {
         const res = await apiFetch("/api/chat/workspaces");
         if (res.ok && !cancelled) {
@@ -22,9 +25,13 @@ export function WorkspaceSwitcher() {
             ? data
             : (data.workspaces ?? []);
           setWorkspaces(list);
+        } else if (!cancelled) {
+          setError("Failed to load workspaces");
         }
       } catch {
-        // Network error — workspaces stay empty
+        if (!cancelled) setError("Failed to load workspaces");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -34,6 +41,8 @@ export function WorkspaceSwitcher() {
     };
   }, []);
 
+  if (error) return <div className={styles.error}>{error}</div>;
+  if (loading) return <div className={styles.loading}>Loading...</div>;
   if (workspaces.length === 0) return null;
 
   return (

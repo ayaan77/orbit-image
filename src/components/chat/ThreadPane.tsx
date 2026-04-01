@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useChatContext } from "./ChatProvider";
 import { apiFetch } from "@/lib/client/api";
 import { MessageBubble } from "./MessageBubble";
 import { MessageComposer } from "./MessageComposer";
@@ -13,6 +14,7 @@ interface ThreadPaneProps {
 }
 
 export function ThreadPane({ parentId, onClose }: ThreadPaneProps) {
+  const { currentUserId } = useChatContext();
   const [parentMessage, setParentMessage] = useState<Message | null>(null);
   const [replies, setReplies] = useState<readonly Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +109,7 @@ export function ThreadPane({ parentId, onClose }: ThreadPaneProps) {
                   message={parentMessage}
                   onOpenThread={() => {}}
                   onDelete={() => {}}
+                  currentUserId={currentUserId ?? undefined}
                 />
               </div>
             )}
@@ -118,6 +121,7 @@ export function ThreadPane({ parentId, onClose }: ThreadPaneProps) {
                 message={reply}
                 onOpenThread={() => {}}
                 onDelete={handleDeleteReply}
+                currentUserId={currentUserId ?? undefined}
               />
             ))}
 
@@ -132,7 +136,6 @@ export function ThreadPane({ parentId, onClose }: ThreadPaneProps) {
 
       {/* Composer for thread replies */}
       <MessageComposer
-        channelId=""
         parentId={parentId}
         onSent={handleReplySent}
       />

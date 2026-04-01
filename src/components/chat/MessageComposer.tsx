@@ -14,7 +14,7 @@ import type { Message, MemberSummary } from "@/lib/chat/types";
 import styles from "./MessageComposer.module.css";
 
 interface MessageComposerProps {
-  readonly channelId: string;
+  readonly channelId?: string;
   readonly parentId?: string;
   readonly onSent: (msg: Message) => void;
 }
@@ -127,6 +127,7 @@ export function MessageComposer({
   const handleSubmit = useCallback(async () => {
     const trimmed = content.trim();
     if (!trimmed || isSending) return;
+    if (!parentId && !channelId) return;
 
     setIsSending(true);
     try {
@@ -139,7 +140,6 @@ export function MessageComposer({
         body: JSON.stringify({
           content: trimmed,
           type: "text",
-          ...(parentId ? {} : {}),
         }),
       });
 

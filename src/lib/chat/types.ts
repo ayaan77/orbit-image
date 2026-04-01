@@ -92,6 +92,7 @@ export interface ChatContextValue {
   readonly unreadMentionCount: number;
   readonly pendingShare: ImageShareData | null;
   readonly pusherClient: unknown | null; // Pusher instance (typed as unknown to avoid exposing pusher-js in types)
+  readonly currentUserId: string | null;
   readonly openPanel: (channelId?: string) => void;
   readonly closePanel: () => void;
   readonly setActiveWorkspace: (workspaceId: string) => void;

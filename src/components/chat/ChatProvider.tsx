@@ -37,6 +37,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [unreadMentionCount, setUnreadMentionCount] = useState(0);
   const [pendingShare, setPendingShare] = useState<ImageShareData | null>(null);
+  const [pusherReady, setPusherReady] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Keep refs to Pusher channels so we can unsubscribe on cleanup
   const pusherRef = useRef<Pusher | null>(null);
@@ -134,6 +136,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         authEndpoint: "/api/chat/pusher/auth",
       });
       pusherRef.current = pusher;
+      setPusherReady(true);
 
       // 4. Subscribe to per-workspace channels
       for (const ws of workspaces) {
@@ -149,6 +152,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           const meData = await meRes.json();
           const userId: string | undefined = meData?.user?.id ?? meData?.id;
           if (userId) {
+            setCurrentUserId(userId);
             const mentionCh = pusher.subscribe(`private-mentions-${userId}`);
             channelRefs.current.push(mentionCh);
             mentionCh.bind("new-mention", () => {
@@ -176,6 +180,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       // Disconnect Pusher client
       pusherRef.current?.disconnect();
       pusherRef.current = null;
+      setPusherReady(false);
     };
   }, []);
 
@@ -186,7 +191,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       isPanelOpen,
       unreadMentionCount,
       pendingShare,
-      pusherClient: pusherRef.current,
+      pusherClient: pusherReady ? pusherRef.current : null,
+      currentUserId,
       openPanel,
       closePanel,
       setActiveWorkspace,
@@ -201,6 +207,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       isPanelOpen,
       unreadMentionCount,
       pendingShare,
+      pusherReady,
+      currentUserId,
       openPanel,
       closePanel,
       setActiveWorkspace,

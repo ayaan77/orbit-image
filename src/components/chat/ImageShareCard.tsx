@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/client/api";
 import { ReactionBar } from "./ReactionBar";
 import { ThreadPreview } from "./ThreadPreview";
 import type { Message } from "@/lib/chat/types";
+import { formatTimeAgo } from "@/lib/chat/utils";
 import styles from "./ImageShareCard.module.css";
 
 interface ImageShareCardProps {
@@ -57,16 +58,6 @@ export function ImageShareCard({
   }, [imageData, message.id, openStudioWithContext]);
 
   if (!imageData) return null;
-
-  const formatTimeAgo = (dateStr: string): string => {
-    const diffMs = Date.now() - new Date(dateStr).getTime();
-    const diffMins = Math.floor(diffMs / 60_000);
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHrs = Math.floor(diffMins / 60);
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    return `${Math.floor(diffHrs / 24)}d ago`;
-  };
 
   return (
     <div className={styles.card} data-testid="image-share-card">

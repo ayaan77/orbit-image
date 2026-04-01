@@ -11,6 +11,7 @@ export function ChannelSidebar() {
   const { activeWorkspaceId, activeChannelId, setActiveChannel, pusherClient } =
     useChatContext();
   const [channels, setChannels] = useState<readonly Channel[]>([]);
+  const [channelError, setChannelError] = useState<string | null>(null);
   // Local unread counts per channel — incremented via Pusher, cleared on activation
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const subscribedRef = useRef<Set<string>>(new Set());
@@ -18,10 +19,12 @@ export function ChannelSidebar() {
   useEffect(() => {
     if (!activeWorkspaceId) {
       setChannels([]);
+      setChannelError(null);
       return;
     }
 
     let cancelled = false;
+    setChannelError(null);
 
     async function fetchChannels() {
       try {
@@ -34,9 +37,11 @@ export function ChannelSidebar() {
             ? data
             : (data.channels ?? []);
           setChannels(list);
+        } else if (!cancelled) {
+          setChannelError("Failed to load channels");
         }
       } catch {
-        // Network error — channels stay empty
+        if (!cancelled) setChannelError("Failed to load channels");
       }
     }
 
@@ -45,6 +50,19 @@ export function ChannelSidebar() {
       cancelled = true;
     };
   }, [activeWorkspaceId]);
+
+  // Unsubscribe all channel subscriptions when workspace changes
+  useEffect(() => {
+    return () => {
+      if (pusherClient) {
+        const pusher = pusherClient as Pusher;
+        subscribedRef.current.forEach((cid) => {
+          pusher.unsubscribe(`private-channel-${cid}`);
+        });
+        subscribedRef.current.clear();
+      }
+    };
+  }, [activeWorkspaceId, pusherClient]);
 
   // Subscribe to each channel's Pusher channel for real-time unread dots
   useEffect(() => {
@@ -69,11 +87,11 @@ export function ChannelSidebar() {
     }
 
     return () => {
-      // Unsubscribe only the channels we just subscribed to in this effect run
-      for (const cid of newSubscriptions) {
-        subscribedRef.current.delete(cid);
+      // Unsubscribe everything subscribed in this effect run
+      subscribedRef.current.forEach((cid) => {
         pusher.unsubscribe(`private-channel-${cid}`);
-      }
+      });
+      subscribedRef.current.clear();
     };
     // activeChannelId intentionally excluded: the bind callback closes over it
     // via the setter form so stale closures are not a problem.
@@ -98,6 +116,14 @@ export function ChannelSidebar() {
     return (
       <div className={styles.sidebar}>
         <div className={styles.empty}>No workspace selected</div>
+      </div>
+    );
+  }
+
+  if (channelError) {
+    return (
+      <div className={styles.sidebar}>
+        <div className={styles.empty}>{channelError}</div>
       </div>
     );
   }

@@ -29,25 +29,21 @@ export function ChannelPickerModal({ onClose, imageData }: ChannelPickerModalPro
           ? wsData
           : (wsData.workspaces ?? []);
 
-        const allChannels: Channel[] = [];
-        await Promise.all(
+        const results = await Promise.all(
           workspaces.map(async (ws) => {
             try {
               const chRes = await apiFetch(
                 `/api/chat/workspaces/${ws.id}/channels`
               );
-              if (chRes.ok) {
-                const chData = await chRes.json();
-                const list: Channel[] = Array.isArray(chData)
-                  ? chData
-                  : (chData.channels ?? []);
-                allChannels.push(...list);
-              }
+              if (!chRes.ok) return [] as Channel[];
+              const chData = await chRes.json();
+              return (Array.isArray(chData) ? chData : (chData.channels ?? [])) as Channel[];
             } catch {
-              // Skip workspace on error
+              return [] as Channel[];
             }
           })
         );
+        const allChannels = results.flat();
 
         if (!cancelled) {
           setChannels(allChannels);

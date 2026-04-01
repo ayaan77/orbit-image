@@ -1,8 +1,8 @@
 "use client";
 
 interface MentionBadgeProps {
-  count: number;
-  className?: string;
+  readonly count: number;
+  readonly className?: string;
 }
 
 export function MentionBadge({ count, className }: MentionBadgeProps) {

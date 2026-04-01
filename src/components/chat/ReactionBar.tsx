@@ -24,7 +24,7 @@ export function ReactionBar({ messageId, reactions }: ReactionBarProps) {
     setOptimisticReactions(reactions);
   }, [reactions]);
 
-  // Close picker on outside click
+  // Close picker on outside click or Escape key
   useEffect(() => {
     if (!showPicker) return;
     const handleClick = (e: MouseEvent) => {
@@ -32,8 +32,15 @@ export function ReactionBar({ messageId, reactions }: ReactionBarProps) {
         setShowPicker(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowPicker(false);
+    };
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [showPicker]);
 
   const toggleReaction = useCallback(
