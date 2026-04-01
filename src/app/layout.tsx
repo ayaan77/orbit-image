@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { ChatToggleButton } from "@/components/chat/ChatToggleButton";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function RootLayout({
         <ChatProvider>
           {children}
           <ChatToggleButton />
+          <ChatPanel />
         </ChatProvider>
       </body>
     </html>
