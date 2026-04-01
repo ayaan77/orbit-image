@@ -50,10 +50,10 @@ jobs:
             --suspend-timeout 300 \
             2>/dev/null || true
 
-          # Get the connection string
+          # Get the connection string (|| DATABASE_URL="" so a missing branch doesn't abort the script)
           DATABASE_URL=$(neonctl connection-string "$BRANCH_NAME" \
             --project-id "$NEON_PROJECT_ID" \
-            --pooled)
+            --pooled 2>/dev/null) || DATABASE_URL=""
 
           if [ -z "$DATABASE_URL" ]; then
             echo "::warning::Could not get Neon connection string. Skipping migrations."
