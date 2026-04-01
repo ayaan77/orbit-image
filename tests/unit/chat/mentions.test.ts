@@ -110,11 +110,12 @@ describe('insertMentions', () => {
     expect(mockDb).not.toHaveBeenCalled();
   });
 
-  it('inserts one row per userId', async () => {
+  it('inserts all userIds in a single bulk query', async () => {
     mockDb.mockResolvedValue([]);
 
     await insertMentions('msg-123', ['user-a', 'user-b', 'user-c']);
-    expect(mockDb).toHaveBeenCalledTimes(3);
+    // New implementation uses a single unnest-based bulk INSERT instead of N separate inserts
+    expect(mockDb).toHaveBeenCalledTimes(1);
   });
 
   it('inserts with the correct messageId', async () => {

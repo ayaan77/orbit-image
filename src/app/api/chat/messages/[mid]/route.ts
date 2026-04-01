@@ -1,5 +1,10 @@
 import { authenticateRequest } from '@/lib/middleware/auth';
-import { ChatError, softDeleteMessage } from '@/lib/chat/db';
+import {
+  ChatError,
+  getMessageChannelId,
+  requireWorkspaceMember,
+  softDeleteMessage,
+} from '@/lib/chat/db';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -24,6 +29,13 @@ export async function DELETE(
 
   try {
     const { mid } = await params;
+
+    const msgRef = await getMessageChannelId(mid);
+    if (!msgRef) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+    await requireWorkspaceMember(msgRef.workspaceId, userId);
+
     await softDeleteMessage(mid, userId);
     return NextResponse.json({ success: true });
   } catch (err) {

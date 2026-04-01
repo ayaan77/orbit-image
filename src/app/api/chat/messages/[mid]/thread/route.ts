@@ -1,5 +1,10 @@
 import { authenticateRequest } from '@/lib/middleware/auth';
-import { ChatError, getThreadReplies } from '@/lib/chat/db';
+import {
+  ChatError,
+  getMessageChannelId,
+  getThreadReplies,
+  requireWorkspaceMember,
+} from '@/lib/chat/db';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -24,6 +29,13 @@ export async function GET(
 
   try {
     const { mid } = await params;
+
+    const msgRef = await getMessageChannelId(mid);
+    if (!msgRef) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+    await requireWorkspaceMember(msgRef.workspaceId, userId);
+
     const replies = await getThreadReplies(mid);
     return NextResponse.json({ replies });
   } catch (err) {

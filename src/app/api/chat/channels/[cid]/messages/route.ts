@@ -173,23 +173,25 @@ export async function POST(
       await insertMentions(message.id, mentionedUserIds);
     }
 
-    // Fire Pusher events
-    await triggerPusher(`private-channel-${cid}`, 'message.created', {
-      message,
-      author: { id: userId, username },
-    });
-
-    // Notify each mentioned user
-    for (const mentionedUserId of mentionedUserIds) {
-      await triggerPusher(
-        `private-mentions-${mentionedUserId}`,
-        'mention.created',
-        {
-          messageId: message.id,
-          channelId: cid,
-          from: { id: userId, username },
-        },
-      );
+    // Fire Pusher events — failures are non-fatal; message is already saved
+    try {
+      await triggerPusher(`private-channel-${cid}`, 'message.created', {
+        message,
+        author: { id: userId, username },
+      });
+      for (const mentionedUserId of mentionedUserIds) {
+        await triggerPusher(
+          `private-mentions-${mentionedUserId}`,
+          'mention.created',
+          {
+            messageId: message.id,
+            channelId: cid,
+            from: { id: userId, username },
+          },
+        );
+      }
+    } catch (pusherErr) {
+      console.error('[chat] Pusher trigger failed (non-fatal):', pusherErr);
     }
 
     return NextResponse.json({ message }, { status: 201 });

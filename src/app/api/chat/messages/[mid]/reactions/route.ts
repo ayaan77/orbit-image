@@ -1,8 +1,12 @@
 import { z } from 'zod';
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { validateRequestBody } from '@/lib/middleware/validation';
-import { ChatError, toggleReaction } from '@/lib/chat/db';
-import { getDb } from '@/lib/storage/db';
+import {
+  ChatError,
+  getMessageChannelId,
+  requireWorkspaceMember,
+  toggleReaction,
+} from '@/lib/chat/db';
 import { triggerPusher } from '@/lib/chat/pusher';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -37,6 +41,13 @@ export async function POST(
   try {
     const { mid } = await params;
 
+    const msgRef = await getMessageChannelId(mid);
+    if (!msgRef) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+    await requireWorkspaceMember(msgRef.workspaceId, userId);
+    const { channelId } = msgRef;
+
     const validation = await validateRequestBody(req, ReactionSchema);
     if (!validation.success) {
       return validation.response;
@@ -45,18 +56,15 @@ export async function POST(
     const { emoji } = validation.data;
     const { added, count } = await toggleReaction(mid, userId, emoji);
 
-    // Look up the message's channel for Pusher
-    const db = getDb();
-    if (db) {
-      const rows = await db`SELECT channel_id FROM messages WHERE id = ${mid}`;
-      if (rows.length > 0) {
-        const channelId = rows[0].channel_id as string;
-        await triggerPusher(
-          `private-channel-${channelId}`,
-          'reaction.toggled',
-          { messageId: mid, emoji, count, added, channelId },
-        );
-      }
+    // Fire Pusher event — failure is non-fatal; reaction is already saved
+    try {
+      await triggerPusher(
+        `private-channel-${channelId}`,
+        'reaction.toggled',
+        { messageId: mid, emoji, count, added, channelId },
+      );
+    } catch (pusherErr) {
+      console.error('[chat] Pusher trigger failed (non-fatal):', pusherErr);
     }
 
     return NextResponse.json({ added, count });

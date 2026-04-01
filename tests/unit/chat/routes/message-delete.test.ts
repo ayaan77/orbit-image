@@ -17,16 +17,20 @@ vi.mock('@/lib/chat/db', () => ({
     }
   },
   softDeleteMessage: vi.fn(),
+  getMessageChannelId: vi.fn(),
+  requireWorkspaceMember: vi.fn(),
 }));
 
 // ─── Imports (after mocks) ───
 
 import { authenticateRequest } from '@/lib/middleware/auth';
-import { softDeleteMessage, ChatError } from '@/lib/chat/db';
+import { softDeleteMessage, ChatError, getMessageChannelId, requireWorkspaceMember } from '@/lib/chat/db';
 import { DELETE } from '@/app/api/chat/messages/[mid]/route';
 
 const mockAuth = vi.mocked(authenticateRequest);
 const mockSoftDelete = vi.mocked(softDeleteMessage);
+const mockGetMessageChannelId = vi.mocked(getMessageChannelId);
+const mockRequireWorkspaceMember = vi.mocked(requireWorkspaceMember);
 
 const TEST_USER: User = {
   id: 'usr_test1',
@@ -50,6 +54,8 @@ describe('DELETE /api/chat/messages/[mid]', () => {
 
   it('deletes own message', async () => {
     mockAuth.mockResolvedValue({ type: 'user', user: TEST_USER });
+    mockGetMessageChannelId.mockResolvedValue({ channelId: 'ch_1', workspaceId: 'ws_1' });
+    mockRequireWorkspaceMember.mockResolvedValue('member');
     mockSoftDelete.mockResolvedValue();
 
     const res = await DELETE(makeRequest() as any, {
@@ -62,8 +68,20 @@ describe('DELETE /api/chat/messages/[mid]', () => {
     expect(mockSoftDelete).toHaveBeenCalledWith('msg_1', 'usr_test1');
   });
 
+  it('returns 404 when message does not exist', async () => {
+    mockAuth.mockResolvedValue({ type: 'user', user: TEST_USER });
+    mockGetMessageChannelId.mockResolvedValue(null);
+
+    const res = await DELETE(makeRequest() as any, {
+      params: paramsPromise,
+    });
+    expect(res.status).toBe(404);
+  });
+
   it('returns 403 when trying to delete someone else\'s message', async () => {
     mockAuth.mockResolvedValue({ type: 'user', user: TEST_USER });
+    mockGetMessageChannelId.mockResolvedValue({ channelId: 'ch_1', workspaceId: 'ws_1' });
+    mockRequireWorkspaceMember.mockResolvedValue('member');
     mockSoftDelete.mockRejectedValue(
       new ChatError('Message not found or not owned by user', 403),
     );

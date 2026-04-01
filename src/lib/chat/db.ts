@@ -184,30 +184,22 @@ export async function getOrCreateDM(
 
   const dmName = `dm_${[userId, targetUserId].sort().join('_')}`;
 
-  const existing = await db`
-    SELECT * FROM channels
-    WHERE workspace_id = ${workspaceId} AND name = ${dmName}
-    LIMIT 1
-  `;
-
-  if (existing.length > 0) {
-    return rowToChannel(existing[0]);
-  }
-
-  const id = newChannelId();
-
-  const created = await db`
-    INSERT INTO channels (id, workspace_id, name, is_dm, created_by)
-    VALUES (${id}, ${workspaceId}, ${dmName}, TRUE, ${userId})
+  const inserted = await db`
+    INSERT INTO channels (id, workspace_id, name, is_dm, created_by, created_at)
+    VALUES (${newChannelId()}, ${workspaceId}, ${dmName}, true, ${userId}, NOW())
+    ON CONFLICT (workspace_id, name) DO NOTHING
     RETURNING *
   `;
 
-  const channel = rowToChannel(created[0]);
+  // If conflict (race condition), fetch the existing channel
+  const channel = inserted.length ? rowToChannel(inserted[0]) : rowToChannel((await db`
+    SELECT * FROM channels WHERE workspace_id = ${workspaceId} AND name = ${dmName} LIMIT 1
+  `)[0]);
 
   // Add both users as members
   await db`
     INSERT INTO channel_members (channel_id, user_id)
-    VALUES (${id}, ${userId}), (${id}, ${targetUserId})
+    VALUES (${channel.id}, ${userId}), (${channel.id}, ${targetUserId})
     ON CONFLICT DO NOTHING
   `;
 
@@ -563,4 +555,20 @@ export async function getChannelById(
 
   if (rows.length === 0) return null;
   return rowToChannel(rows[0]);
+}
+
+export async function getMessageChannelId(
+  messageId: string
+): Promise<{ channelId: string; workspaceId: string } | null> {
+  const db = getDb();
+  if (!db) return null;
+  const rows = await db`
+    SELECT m.channel_id, c.workspace_id
+    FROM messages m
+    JOIN channels c ON c.id = m.channel_id
+    WHERE m.id = ${messageId}
+    LIMIT 1
+  `;
+  if (!rows.length) return null;
+  return { channelId: rows[0].channel_id as string, workspaceId: rows[0].workspace_id as string };
 }

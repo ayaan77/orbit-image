@@ -48,15 +48,14 @@ export async function insertMentions(
   messageId: string,
   userIds: string[]
 ): Promise<void> {
+  if (!userIds.length) return;
   const db = getDb();
-  if (!db || userIds.length === 0) return;
-
-  for (const userId of userIds) {
-    const id = newMentionId();
-    await db`
-      INSERT INTO mentions (id, message_id, mentioned_user_id)
-      VALUES (${id}, ${messageId}, ${userId})
-      ON CONFLICT (message_id, mentioned_user_id) DO NOTHING
-    `;
-  }
+  if (!db) return;
+  const ids = userIds.map(() => newMentionId());
+  // Use unnest to batch insert all mentions in one query
+  await db`
+    INSERT INTO mentions (id, message_id, mentioned_user_id, created_at)
+    SELECT unnest(${ids}::text[]), ${messageId}, unnest(${userIds}::text[]), NOW()
+    ON CONFLICT (message_id, mentioned_user_id) DO NOTHING
+  `;
 }

@@ -21,10 +21,8 @@ vi.mock('@/lib/chat/db', () => ({
     }
   },
   toggleReaction: vi.fn(),
-}));
-
-vi.mock('@/lib/storage/db', () => ({
-  getDb: vi.fn(),
+  getMessageChannelId: vi.fn(),
+  requireWorkspaceMember: vi.fn(),
 }));
 
 vi.mock('@/lib/chat/pusher', () => ({
@@ -35,15 +33,15 @@ vi.mock('@/lib/chat/pusher', () => ({
 
 import { authenticateRequest } from '@/lib/middleware/auth';
 import { validateRequestBody } from '@/lib/middleware/validation';
-import { toggleReaction } from '@/lib/chat/db';
-import { getDb } from '@/lib/storage/db';
+import { toggleReaction, getMessageChannelId, requireWorkspaceMember } from '@/lib/chat/db';
 import { triggerPusher } from '@/lib/chat/pusher';
 import { POST } from '@/app/api/chat/messages/[mid]/reactions/route';
 
 const mockAuth = vi.mocked(authenticateRequest);
 const mockValidateBody = vi.mocked(validateRequestBody);
 const mockToggleReaction = vi.mocked(toggleReaction);
-const mockGetDb = vi.mocked(getDb);
+const mockGetMessageChannelId = vi.mocked(getMessageChannelId);
+const mockRequireWorkspaceMember = vi.mocked(requireWorkspaceMember);
 const mockTriggerPusher = vi.mocked(triggerPusher);
 
 const TEST_USER: User = {
@@ -73,18 +71,13 @@ describe('POST /api/chat/messages/[mid]/reactions', () => {
 
   it('toggles reaction and fires Pusher', async () => {
     mockAuth.mockResolvedValue({ type: 'user', user: TEST_USER });
+    mockGetMessageChannelId.mockResolvedValue({ channelId: 'ch_1', workspaceId: 'ws_1' });
+    mockRequireWorkspaceMember.mockResolvedValue('member');
     mockValidateBody.mockResolvedValue({
       success: true,
       data: { emoji: 'thumbsup' },
     } as any);
     mockToggleReaction.mockResolvedValue({ added: true, count: 1 });
-
-    // Mock DB query for channel lookup
-    const mockDbQuery = vi.fn().mockResolvedValue([
-      { channel_id: 'ch_1' },
-    ]);
-    // The db is a tagged template function, so we need a callable mock
-    mockGetDb.mockReturnValue(mockDbQuery as any);
     mockTriggerPusher.mockResolvedValue();
 
     const res = await POST(makeRequest() as any, {
@@ -111,6 +104,16 @@ describe('POST /api/chat/messages/[mid]/reactions', () => {
         channelId: 'ch_1',
       },
     );
+  });
+
+  it('returns 404 when message does not exist', async () => {
+    mockAuth.mockResolvedValue({ type: 'user', user: TEST_USER });
+    mockGetMessageChannelId.mockResolvedValue(null);
+
+    const res = await POST(makeRequest() as any, {
+      params: paramsPromise,
+    });
+    expect(res.status).toBe(404);
   });
 
   it('returns 401 when not authenticated', async () => {

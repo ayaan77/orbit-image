@@ -206,19 +206,22 @@ describe('getDMs', () => {
 // ─── getOrCreateDM ───
 
 describe('getOrCreateDM', () => {
-  it('returns existing DM channel if it exists', async () => {
+  it('returns existing DM channel if it exists (race-safe: INSERT conflict → SELECT)', async () => {
     const dmRow = fakeChannelRow({
       id: 'dm01',
       name: 'dm_user01_user02',
       is_dm: true,
     });
-    mockDb.mockResolvedValueOnce([dmRow]);
+    // New flow: INSERT ON CONFLICT DO NOTHING returns [] (conflict), then SELECT, then member insert
+    mockDb
+      .mockResolvedValueOnce([]) // INSERT ON CONFLICT DO NOTHING — conflict, no row returned
+      .mockResolvedValueOnce([dmRow]) // SELECT existing channel
+      .mockResolvedValueOnce([]); // INSERT channel_members
 
     const result = await getOrCreateDM('workspace01', 'user01', 'user02');
     expect(result.id).toBe('dm01');
     expect(result.name).toBe('dm_user01_user02');
-    // Should not call insert
-    expect(mockDb).toHaveBeenCalledTimes(1);
+    expect(mockDb).toHaveBeenCalledTimes(3);
   });
 
   it('creates a new DM channel when none exists', async () => {
@@ -229,9 +232,8 @@ describe('getOrCreateDM', () => {
     });
 
     mockDb
-      .mockResolvedValueOnce([]) // SELECT existing — not found
-      .mockResolvedValueOnce([newDmRow]) // INSERT channel
-      .mockResolvedValueOnce([]); // INSERT members
+      .mockResolvedValueOnce([newDmRow]) // INSERT ON CONFLICT DO NOTHING — success, row returned
+      .mockResolvedValueOnce([]); // INSERT channel_members
 
     const result = await getOrCreateDM('workspace01', 'user01', 'user02');
     expect(result.name).toBe('dm_user01_user02');
@@ -244,12 +246,17 @@ describe('getOrCreateDM', () => {
       name: 'dm_user01_user02', // sorted: user01 < user02
       is_dm: true,
     });
-    mockDb.mockResolvedValueOnce([dmRow]);
-
+    // user01 calls user02 — INSERT returns the row (new channel)
+    mockDb
+      .mockResolvedValueOnce([dmRow]) // INSERT returns row
+      .mockResolvedValueOnce([]); // INSERT members
     const result1 = await getOrCreateDM('workspace01', 'user01', 'user02');
     expect(result1.name).toBe('dm_user01_user02');
 
-    mockDb.mockResolvedValueOnce([dmRow]);
+    // user02 calls user01 — same deterministic name
+    mockDb
+      .mockResolvedValueOnce([dmRow]) // INSERT returns row
+      .mockResolvedValueOnce([]); // INSERT members
     const result2 = await getOrCreateDM('workspace01', 'user02', 'user01');
     expect(result2.name).toBe('dm_user01_user02');
   });
