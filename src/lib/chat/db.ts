@@ -9,11 +9,21 @@ import type {
   WorkspaceRole,
 } from './types';
 
+// ─── Typed Error ───
+
+export class ChatError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ChatError';
+  }
+}
+
 // ─── ID Generation ───
 
-function generateId(): string {
-  return randomBytes(16).toString('hex');
-}
+const newWorkspaceId = () => `ws_${randomBytes(12).toString('hex')}`;
+const newChannelId   = () => `ch_${randomBytes(12).toString('hex')}`;
+const newMessageId   = () => `msg_${randomBytes(12).toString('hex')}`;
+const newReactionId  = () => `rxn_${randomBytes(12).toString('hex')}`;
 
 // ─── Row Mappers ───
 
@@ -115,7 +125,7 @@ export async function requireWorkspaceMember(
   userId: string
 ): Promise<WorkspaceRole> {
   const db = getDb();
-  if (!db) throw Object.assign(new Error('Database not configured'), { status: 403 });
+  if (!db) throw new ChatError('Database not configured', 503);
 
   const rows = await db`
     SELECT role FROM workspace_members
@@ -124,10 +134,7 @@ export async function requireWorkspaceMember(
   `;
 
   if (rows.length === 0) {
-    throw Object.assign(
-      new Error('Not a member of this workspace'),
-      { status: 403 }
-    );
+    throw new ChatError('Not a member of this workspace', 403);
   }
 
   return rows[0].role as WorkspaceRole;
@@ -173,7 +180,7 @@ export async function getOrCreateDM(
   targetUserId: string
 ): Promise<Channel> {
   const db = getDb();
-  if (!db) throw new Error('Database not configured');
+  if (!db) throw new ChatError('Database not configured', 503);
 
   const dmName = `dm_${[userId, targetUserId].sort().join('_')}`;
 
@@ -187,7 +194,7 @@ export async function getOrCreateDM(
     return rowToChannel(existing[0]);
   }
 
-  const id = generateId();
+  const id = newChannelId();
 
   const created = await db`
     INSERT INTO channels (id, workspace_id, name, is_dm, created_by)
@@ -228,6 +235,7 @@ export async function getMessages(
         JOIN users u ON u.id = m.user_id
         WHERE m.channel_id = ${channelId}
           AND m.parent_id IS NULL
+          AND m.deleted_at IS NULL
           AND m.created_at < (SELECT created_at FROM messages WHERE id = ${cursor})
         ORDER BY m.created_at DESC
         LIMIT ${safeLimit}
@@ -239,6 +247,7 @@ export async function getMessages(
         JOIN users u ON u.id = m.user_id
         WHERE m.channel_id = ${channelId}
           AND m.parent_id IS NULL
+          AND m.deleted_at IS NULL
         ORDER BY m.created_at DESC
         LIMIT ${safeLimit}
       `;
@@ -294,9 +303,9 @@ export async function createMessage(data: {
   readonly parentId?: string;
 }): Promise<Message> {
   const db = getDb();
-  if (!db) throw new Error('Database not configured');
+  if (!db) throw new ChatError('Database not configured', 503);
 
-  const id = generateId();
+  const id = newMessageId();
 
   const rows = await db`
     INSERT INTO messages (id, channel_id, user_id, content, type, parent_id)
@@ -324,7 +333,7 @@ export async function softDeleteMessage(
   userId: string
 ): Promise<void> {
   const db = getDb();
-  if (!db) throw new Error('Database not configured');
+  if (!db) throw new ChatError('Database not configured', 503);
 
   const rows = await db`
     UPDATE messages
@@ -334,10 +343,7 @@ export async function softDeleteMessage(
   `;
 
   if (rows.length === 0) {
-    throw Object.assign(
-      new Error('Message not found or not owned by user'),
-      { status: 403 }
-    );
+    throw new ChatError('Message not found or not owned by user', 403);
   }
 }
 
@@ -389,7 +395,7 @@ export async function toggleReaction(
   emoji: string
 ): Promise<{ readonly added: boolean; readonly count: number }> {
   const db = getDb();
-  if (!db) throw new Error('Database not configured');
+  if (!db) throw new ChatError('Database not configured', 503);
 
   // Check if reaction already exists
   const existing = await db`
@@ -414,7 +420,7 @@ export async function toggleReaction(
   }
 
   // Add reaction
-  const id = generateId();
+  const id = newReactionId();
   await db`
     INSERT INTO message_reactions (id, message_id, user_id, emoji)
     VALUES (${id}, ${messageId}, ${userId}, ${emoji})

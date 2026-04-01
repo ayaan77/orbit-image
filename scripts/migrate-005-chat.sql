@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS mentions (
   message_id          VARCHAR(32) NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
   mentioned_user_id   VARCHAR(32) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   read_at             TIMESTAMPTZ,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (message_id, mentioned_user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_mentions_user_unread ON mentions(mentioned_user_id) WHERE read_at IS NULL;

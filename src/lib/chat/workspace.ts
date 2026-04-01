@@ -10,9 +10,8 @@ const DEFAULT_CHANNELS = [
   { name: 'ad-creative', description: 'Ad creative image generation' },
 ] as const;
 
-function generateId(): string {
-  return randomBytes(16).toString('hex');
-}
+const newWorkspaceId = () => `ws_${randomBytes(12).toString('hex')}`;
+const newChannelId   = () => `ch_${randomBytes(12).toString('hex')}`;
 
 function slugify(name: string): string {
   return name
@@ -63,7 +62,7 @@ export async function syncWorkspacesFromCortex(): Promise<void> {
     // Upsert workspace
     const workspaceRows = await db`
       INSERT INTO workspaces (id, brand_id, name, slug)
-      VALUES (${generateId()}, ${brandId}, ${name}, ${slug})
+      VALUES (${newWorkspaceId()}, ${brandId}, ${name}, ${slug})
       ON CONFLICT (brand_id) DO UPDATE
         SET name = EXCLUDED.name, slug = EXCLUDED.slug
       RETURNING id
@@ -75,20 +74,18 @@ export async function syncWorkspacesFromCortex(): Promise<void> {
     for (const ch of DEFAULT_CHANNELS) {
       await db`
         INSERT INTO channels (id, workspace_id, name, description, is_dm)
-        VALUES (${generateId()}, ${workspaceId}, ${ch.name}, ${ch.description}, FALSE)
+        VALUES (${newChannelId()}, ${workspaceId}, ${ch.name}, ${ch.description}, FALSE)
         ON CONFLICT (workspace_id, name) DO NOTHING
       `;
     }
 
-    // Add all existing users as workspace members
+    // Add all existing users as workspace members (single batch INSERT)
     if (userIds.length > 0) {
-      for (const userId of userIds) {
-        await db`
-          INSERT INTO workspace_members (workspace_id, user_id, role)
-          VALUES (${workspaceId}, ${userId}, 'member')
-          ON CONFLICT (workspace_id, user_id) DO NOTHING
-        `;
-      }
+      await db`
+        INSERT INTO workspace_members (workspace_id, user_id, role)
+        SELECT ${workspaceId}, unnest(${userIds}::text[]), 'member'
+        ON CONFLICT (workspace_id, user_id) DO NOTHING
+      `;
     }
   }
 }

@@ -1,12 +1,14 @@
 import Pusher from 'pusher';
+import { getEnv } from '@/lib/config/env';
 
 let _pusher: Pusher | null = null;
 
 export function getPusher(): Pusher | null {
-  const appId = process.env.PUSHER_APP_ID;
-  const key = process.env.PUSHER_KEY;
-  const secret = process.env.PUSHER_SECRET;
-  const cluster = process.env.PUSHER_CLUSTER ?? 'mt1';
+  const env = getEnv();
+  const appId = env.PUSHER_APP_ID;
+  const key = env.PUSHER_KEY;
+  const secret = env.PUSHER_SECRET;
+  const cluster = env.PUSHER_CLUSTER ?? 'mt1';
 
   if (!appId || !key || !secret) return null;
 

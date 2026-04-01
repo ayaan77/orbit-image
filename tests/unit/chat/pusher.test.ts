@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Env } from '@/lib/config/env';
 
 // Mock pusher module before imports
 vi.mock('pusher', () => {
@@ -9,32 +10,52 @@ vi.mock('pusher', () => {
   };
 });
 
+// Mock getEnv so tests control Pusher config without depending on full env validation
+const mockEnv: Partial<Env> = {};
+vi.mock('@/lib/config/env', () => ({
+  getEnv: () => mockEnv,
+  resetEnvCache: vi.fn(),
+}));
+
 import { getPusher, triggerPusher, resetPusherCache } from '@/lib/chat/pusher';
+
+function setPusherEnv(overrides: {
+  appId?: string;
+  key?: string;
+  secret?: string;
+  cluster?: string;
+}) {
+  mockEnv.PUSHER_APP_ID = overrides.appId;
+  mockEnv.PUSHER_KEY = overrides.key;
+  mockEnv.PUSHER_SECRET = overrides.secret;
+  mockEnv.PUSHER_CLUSTER = overrides.cluster ?? 'mt1';
+}
 
 beforeEach(() => {
   resetPusherCache();
-  vi.unstubAllEnvs();
+  // Clear pusher-related fields
+  delete mockEnv.PUSHER_APP_ID;
+  delete mockEnv.PUSHER_KEY;
+  delete mockEnv.PUSHER_SECRET;
+  delete mockEnv.PUSHER_CLUSTER;
   vi.clearAllMocks();
 });
 
 describe('getPusher', () => {
   it('returns null when PUSHER_APP_ID is missing', () => {
-    vi.stubEnv('PUSHER_KEY', 'key');
-    vi.stubEnv('PUSHER_SECRET', 'secret');
+    setPusherEnv({ key: 'key', secret: 'secret' });
     const result = getPusher();
     expect(result).toBeNull();
   });
 
   it('returns null when PUSHER_KEY is missing', () => {
-    vi.stubEnv('PUSHER_APP_ID', 'app-id');
-    vi.stubEnv('PUSHER_SECRET', 'secret');
+    setPusherEnv({ appId: 'app-id', secret: 'secret' });
     const result = getPusher();
     expect(result).toBeNull();
   });
 
   it('returns null when PUSHER_SECRET is missing', () => {
-    vi.stubEnv('PUSHER_APP_ID', 'app-id');
-    vi.stubEnv('PUSHER_KEY', 'key');
+    setPusherEnv({ appId: 'app-id', key: 'key' });
     const result = getPusher();
     expect(result).toBeNull();
   });
@@ -45,19 +66,14 @@ describe('getPusher', () => {
   });
 
   it('returns a Pusher instance when all required env vars are set', () => {
-    vi.stubEnv('PUSHER_APP_ID', 'app-id');
-    vi.stubEnv('PUSHER_KEY', 'key');
-    vi.stubEnv('PUSHER_SECRET', 'secret');
-    vi.stubEnv('PUSHER_CLUSTER', 'us2');
+    setPusherEnv({ appId: 'app-id', key: 'key', secret: 'secret', cluster: 'us2' });
 
     const result = getPusher();
     expect(result).not.toBeNull();
   });
 
   it('returns the same singleton instance on repeated calls', () => {
-    vi.stubEnv('PUSHER_APP_ID', 'app-id');
-    vi.stubEnv('PUSHER_KEY', 'key');
-    vi.stubEnv('PUSHER_SECRET', 'secret');
+    setPusherEnv({ appId: 'app-id', key: 'key', secret: 'secret' });
 
     const first = getPusher();
     const second = getPusher();
@@ -65,9 +81,7 @@ describe('getPusher', () => {
   });
 
   it('creates a fresh instance after resetPusherCache', () => {
-    vi.stubEnv('PUSHER_APP_ID', 'app-id');
-    vi.stubEnv('PUSHER_KEY', 'key');
-    vi.stubEnv('PUSHER_SECRET', 'secret');
+    setPusherEnv({ appId: 'app-id', key: 'key', secret: 'secret' });
 
     const first = getPusher();
     resetPusherCache();
@@ -78,16 +92,14 @@ describe('getPusher', () => {
 
 describe('triggerPusher', () => {
   it('does nothing (no error) when Pusher is not configured', async () => {
-    // No env vars set — getPusher returns null
+    // No Pusher vars set — getPusher returns null
     await expect(
       triggerPusher('channel', 'event', { foo: 'bar' })
     ).resolves.toBeUndefined();
   });
 
   it('calls pusher.trigger when configured', async () => {
-    vi.stubEnv('PUSHER_APP_ID', 'app-id');
-    vi.stubEnv('PUSHER_KEY', 'key');
-    vi.stubEnv('PUSHER_SECRET', 'secret');
+    setPusherEnv({ appId: 'app-id', key: 'key', secret: 'secret' });
 
     const pusher = getPusher();
     await triggerPusher('my-channel', 'my-event', { hello: 'world' });

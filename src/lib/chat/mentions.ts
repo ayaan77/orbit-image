@@ -3,6 +3,8 @@ import { getDb } from '@/lib/storage/db';
 
 const MENTION_PATTERN = /@(\w+)/g;
 
+const newMentionId = () => `men_${randomBytes(12).toString('hex')}`;
+
 /**
  * Parse @mentions from message content, resolve usernames to user IDs
  * within the given workspace, and return unique user IDs found.
@@ -50,11 +52,11 @@ export async function insertMentions(
   if (!db || userIds.length === 0) return;
 
   for (const userId of userIds) {
-    const id = randomBytes(16).toString('hex');
+    const id = newMentionId();
     await db`
       INSERT INTO mentions (id, message_id, mentioned_user_id)
       VALUES (${id}, ${messageId}, ${userId})
-      ON CONFLICT DO NOTHING
+      ON CONFLICT (message_id, mentioned_user_id) DO NOTHING
     `;
   }
 }
