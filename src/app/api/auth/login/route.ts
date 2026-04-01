@@ -49,8 +49,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         headers: { "Set-Cookie": cookie },
       },
     );
-  } catch (err) {
-    console.error("[login] ERROR:", err);
+  } catch {
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Login failed" } },
       { status: 500 },

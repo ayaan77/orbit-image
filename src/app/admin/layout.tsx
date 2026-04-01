@@ -43,14 +43,6 @@ function KeyIcon() {
   );
 }
 
-function WorkspacesIcon() {
-  return (
-    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3h9a1 1 0 011 1v5a1 1 0 01-1 1H7l-4 3V4a1 1 0 011-1z" />
-    </svg>
-  );
-}
-
 function PaletteIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -112,7 +104,6 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: "/admin/users", label: "Users", icon: <UsersIcon /> },
   { href: "/admin/tokens", label: "Tokens", icon: <KeyIcon /> },
   { href: "/admin/brands", label: "Brands", icon: <PaletteIcon /> },
-  { href: "/admin/workspaces", label: "Workspaces", icon: <WorkspacesIcon /> },
   { href: "/admin/usage", label: "Usage", icon: <ChartIcon /> },
   { href: "/admin/connect", label: "Connect", icon: <LinkIcon /> },
 ];

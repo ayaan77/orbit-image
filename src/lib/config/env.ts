@@ -28,12 +28,6 @@ const envSchema = z.object({
   XAI_API_KEY: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   CORS_ALLOWED_ORIGINS: z.string().optional(),
-  PUSHER_APP_ID: z.string().min(1).optional(),
-  PUSHER_KEY: z.string().min(1).optional(),
-  PUSHER_SECRET: z.string().min(1).optional(),
-  PUSHER_CLUSTER: z.string().default("mt1"),
-  NEXT_PUBLIC_PUSHER_KEY: z.string().min(1).optional(),
-  NEXT_PUBLIC_PUSHER_CLUSTER: z.string().default("mt1"),
 });
 
 export type Env = z.infer<typeof envSchema>;

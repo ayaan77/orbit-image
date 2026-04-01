@@ -6,7 +6,6 @@ import {
   connectBrand,
   disconnectBrand,
 } from "@/lib/storage/brand-connections";
-import { syncWorkspacesFromCortex } from "@/lib/chat/workspace";
 
 /**
  * GET /api/admin/brands — List connected brands.
@@ -61,11 +60,6 @@ export async function POST(request: Request): Promise<NextResponse> {
         { status: 500, headers },
       );
     }
-    // Fire-and-forget workspace sync — do not fail brand connection if sync fails
-    syncWorkspacesFromCortex().catch((err: unknown) => {
-      console.error("[admin/brands] workspace sync failed after brand connect", err);
-    });
-
     return NextResponse.json({ success: true, connection: result }, { headers });
   }
 

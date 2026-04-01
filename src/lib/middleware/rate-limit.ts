@@ -123,16 +123,14 @@ function inMemoryCheckRateLimit(
  * Uses Redis sliding window when available, falls back to in-memory.
  * @param request - The incoming request
  * @param clientRateLimit - Optional per-client rate limit (overrides global)
- * @param overrideKey - Optional explicit rate limit key (overrides auth-header/IP extraction)
  * @returns NextResponse with 429 if limited, null if within limit.
  */
 export async function checkRateLimit(
   request: Request,
   clientRateLimit?: number,
-  overrideKey?: string,
 ): Promise<NextResponse<ErrorResponse> | null> {
   const limit = clientRateLimit ?? getEnv().RATE_LIMIT_PER_MINUTE;
-  const clientKey = overrideKey ?? extractClientKey(request);
+  const clientKey = extractClientKey(request);
 
   let result: { limited: boolean; count: number; resetAt: number };
 
