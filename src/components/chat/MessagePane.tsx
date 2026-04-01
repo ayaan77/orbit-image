@@ -183,7 +183,8 @@ export function MessagePane() {
         }
       }
     } catch {
-      // Network error — ignore
+      // Network error — stop further load-more attempts
+      setHasMore(false);
     }
   }, [activeChannelId]);
 

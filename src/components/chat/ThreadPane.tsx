@@ -14,7 +14,7 @@ interface ThreadPaneProps {
 }
 
 export function ThreadPane({ parentId, onClose }: ThreadPaneProps) {
-  const { currentUserId } = useChatContext();
+  const { currentUserId, pusherClient, activeChannelId } = useChatContext();
   const [parentMessage, setParentMessage] = useState<Message | null>(null);
   const [replies, setReplies] = useState<readonly Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +48,23 @@ export function ThreadPane({ parentId, onClose }: ThreadPaneProps) {
       cancelled = true;
     };
   }, [parentId]);
+
+  // Subscribe to real-time thread replies via Pusher
+  useEffect(() => {
+    if (!pusherClient || !activeChannelId || !parentId) return;
+    const pusher = pusherClient as import('pusher-js').default;
+    const channelName = `private-channel-${activeChannelId}`;
+    const ch = pusher.subscribe(channelName);
+    ch.bind('message.created', (msg: import('@/lib/chat/types').Message) => {
+      if (msg.parentId === parentId) {
+        setReplies((prev) => [...prev, msg]);
+      }
+    });
+    return () => {
+      ch.unbind_all();
+      pusher.unsubscribe(channelName);
+    };
+  }, [pusherClient, activeChannelId, parentId]);
 
   const handleReplySent = useCallback((msg: Message) => {
     setReplies((prev) => [...prev, msg]);

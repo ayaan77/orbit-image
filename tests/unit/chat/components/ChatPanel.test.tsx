@@ -79,7 +79,7 @@ describe("ChatPanel", () => {
     mockContext = createMockChatContext({ isPanelOpen: true, activeChannelId: null });
     render(<ChatPanel />);
 
-    expect(screen.getByText("Select a channel to start chatting")).toBeInTheDocument();
+    expect(screen.getByText("Select a channel")).toBeInTheDocument();
   });
 
   it("has correct aria attributes", () => {

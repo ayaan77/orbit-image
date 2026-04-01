@@ -16,3 +16,9 @@
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .dot, .text {
+    animation: none;
+  }
+}

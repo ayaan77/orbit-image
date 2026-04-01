@@ -24,10 +24,8 @@
 }
 
 .button:hover {
-  background-color: #4f46e5;
-  box-shadow:
-    0 8px 25px rgba(99, 102, 241, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5), 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .button:focus-visible {

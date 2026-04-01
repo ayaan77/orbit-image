@@ -53,6 +53,11 @@
   color: #e0e7ff;
 }
 
+.closeBtn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
 /* ─── Workspace Switcher ─── */
 .workspaceSwitcher {
   display: flex;
@@ -90,6 +95,11 @@
 
 .workspacePill:hover {
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+.workspacePill:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 2px;
 }
 
 .workspacePillActive {

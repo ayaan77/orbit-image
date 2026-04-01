@@ -12,6 +12,7 @@ export function ChannelSidebar() {
     useChatContext();
   const [channels, setChannels] = useState<readonly Channel[]>([]);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   // Local unread counts per channel — incremented via Pusher, cleared on activation
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const subscribedRef = useRef<Set<string>>(new Set());
@@ -49,7 +50,7 @@ export function ChannelSidebar() {
     return () => {
       cancelled = true;
     };
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, retryKey]);
 
   // Unsubscribe all channel subscriptions when workspace changes
   useEffect(() => {
@@ -120,13 +121,14 @@ export function ChannelSidebar() {
     );
   }
 
-  if (channelError) {
-    return (
-      <div className={styles.sidebar}>
-        <div className={styles.empty}>{channelError}</div>
+  if (channelError) return (
+    <div className={styles.sidebar}>
+      <div className={styles.errorState}>
+        <span className={styles.errorMsg}>{channelError}</span>
+        <button className={styles.retryBtn} onClick={() => { setChannelError(null); setRetryKey(k => k + 1); }} type="button">Retry</button>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className={styles.sidebar} data-testid="channel-sidebar">
@@ -181,8 +183,9 @@ function ChannelItem({ channel, isActive, realtimeUnread, onClick }: ChannelItem
     ? `${styles.channelItem} ${styles.channelItemActive}`
     : styles.channelItem;
 
-  // Show unread dot if there are server-tracked unread mentions OR real-time new messages
-  const hasUnread = (channel.unreadMentions ?? 0) > 0 || realtimeUnread > 0;
+  // Show unread badge if there are server-tracked unread mentions OR real-time new messages
+  const totalUnread = (channel.unreadMentions ?? 0) + realtimeUnread;
+  const hasUnread = totalUnread > 0;
 
   return (
     <button className={itemClassName} onClick={onClick} type="button">
@@ -194,7 +197,11 @@ function ChannelItem({ channel, isActive, realtimeUnread, onClick }: ChannelItem
         <span className={styles.channelPrefix}>#</span>
       )}
       <span className={styles.channelName}>{channel.name}</span>
-      {hasUnread && <span className={styles.unreadDot} aria-label="Unread" />}
+      {hasUnread && (
+        <span className={styles.unreadBadge}>
+          {totalUnread > 99 ? '99+' : totalUnread}
+        </span>
+      )}
     </button>
   );
 }

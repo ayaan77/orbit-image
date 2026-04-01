@@ -8,7 +8,7 @@
 }
 
 .bubble:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* ─── Avatar ─── */
@@ -66,7 +66,7 @@
 }
 
 .mention {
-  color: #6366f1;
+  color: #a5b4fc;
   font-weight: 600;
   background: rgba(99, 102, 241, 0.12);
   border-radius: 3px;
@@ -106,4 +106,10 @@
 
 .deleteBtn:hover {
   background: rgba(239, 68, 68, 0.2);
+}
+
+.deleteBtn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+  display: flex;
 }

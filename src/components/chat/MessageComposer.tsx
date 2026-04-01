@@ -291,6 +291,7 @@ export function MessageComposer({
         value={content}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onBlur={sendTypingStop}
         placeholder={parentId ? "Reply in thread..." : "Type a message..."}
         rows={1}
         disabled={isSending}

@@ -14,7 +14,7 @@
 /* ─── Section ─── */
 .sectionLabel {
   padding: 10px 10px 4px;
-  font-size: 0.5625rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -63,13 +63,22 @@
   flex-shrink: 0;
 }
 
-/* ─── Unread Dot ─── */
-.unreadDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #f97316;
+/* ─── Unread Badge ─── */
+.unreadBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #6366f1;
+  color: #ffffff;
+  font-size: 0.5625rem;
+  font-weight: 700;
   flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 /* ─── DM Avatar ─── */
@@ -94,6 +103,37 @@
   font-size: 0.6875rem;
   color: #818cf8;
   text-align: center;
+}
+
+/* ─── Error State ─── */
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+}
+
+.errorMsg {
+  font-size: 0.6875rem;
+  color: #f87171;
+  text-align: center;
+}
+
+.retryBtn {
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #e0e7ff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.retryBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* ─── Mobile: sidebar fills the full panel width ─── */
