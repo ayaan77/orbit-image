@@ -4,7 +4,5 @@ buildCommand = "npm run build"
 
 [deploy]
 startCommand = "next start -p ${PORT:-3000}"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
