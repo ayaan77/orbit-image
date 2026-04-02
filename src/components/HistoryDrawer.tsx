@@ -7,6 +7,7 @@ import styles from "./HistoryDrawer.module.css";
 
 interface GeneratedImage {
   readonly base64: string;
+  readonly url?: string; // Blob URL or thumbnail data URL — used when base64 is empty
   readonly prompt: string;
   readonly mimeType: string;
   readonly dimensions: { readonly width: number; readonly height: number };
@@ -213,7 +214,12 @@ export function HistoryDrawer({
                     {firstImage && (
                       <div className={styles.thumb}>
                         <img
-                          src={`data:${firstImage.mimeType};base64,${firstImage.base64}`}
+                          src={
+                            firstImage.url ||
+                            (firstImage.base64
+                              ? `data:${firstImage.mimeType};base64,${firstImage.base64}`
+                              : undefined)
+                          }
                           alt={`Generated for ${entry.brand}`}
                           className={styles.thumbImg}
                         />
